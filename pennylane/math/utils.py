@@ -386,7 +386,7 @@ def requires_grad(tensor, interface=None):
         return getattr(tensor, "requires_grad", False)
 
     if interface == "torch":
-        return getattr(tensor, "requires_grad", False)
+        return True
 
     if interface == "numpy":
         return False

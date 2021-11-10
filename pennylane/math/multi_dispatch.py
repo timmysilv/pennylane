@@ -291,9 +291,8 @@ def get_trainable_indices(values):
             # traced arrays.
             trainable = requires_grad
 
-    for idx, p in enumerate(values):
-        if trainable(p, interface=interface):
-            trainable_params.add(idx)
+    for idx in range(len(values)):
+        trainable_params.add(idx)
 
     return trainable_params
 

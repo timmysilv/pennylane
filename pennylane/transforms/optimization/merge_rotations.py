@@ -15,7 +15,10 @@
 
 from pennylane import apply
 from pennylane.transforms import qfunc_transform
-from pennylane.math import allclose, stack, cast_like, zeros
+
+# from pennylane.math import allclose, stack, cast_like, zeros
+
+from torch import allclose, stack, zeros
 
 from pennylane.ops.qubit.attributes import composable_rotations
 from .optimization_utils import find_next_gate, fuse_rot_angles
@@ -132,13 +135,11 @@ def merge_rotations(tape, atol=1e-8, include_gates=None):
                 # The Rot gate must be treated separately
                 if current_gate.name == "Rot":
                     cumulative_angles = fuse_rot_angles(
-                        cumulative_angles, cast_like(stack(next_gate.parameters), cumulative_angles)
+                        cumulative_angles, stack(next_gate.parameters)
                     )
                 # Other, single-parameter rotation gates just have the angle summed
                 else:
-                    cumulative_angles = cumulative_angles + cast_like(
-                        stack(next_gate.parameters), cumulative_angles
-                    )
+                    cumulative_angles = cumulative_angles + stack(next_gate.parameters)
             # If it is not, we need to stop
             else:
                 break
@@ -146,8 +147,9 @@ def merge_rotations(tape, atol=1e-8, include_gates=None):
             # If we did merge, look now at the next gate
             next_gate_idx = find_next_gate(current_gate.wires, list_copy[1:])
 
-        if not allclose(cumulative_angles, zeros(len(cumulative_angles)), atol=atol, rtol=0):
-            current_gate.__class__(*cumulative_angles, wires=current_gate.wires)
+        # if not allclose(cumulative_angles, zeros(len(cumulative_angles)), atol=atol, rtol=0):
+        #     current_gate.__class__(*cumulative_angles, wires=current_gate.wires)
+        current_gate.__class__(cumulative_angles[0], wires=current_gate.wires)
 
         # Remove the first gate gate from the working list
         list_copy.pop(0)

@@ -287,7 +287,7 @@ ar.register_function(
 )
 ar.register_function("torch", "diag", lambda x, k=0: _i("torch").diag(x, diagonal=k))
 ar.register_function("torch", "expand_dims", lambda x, axis: _i("torch").unsqueeze(x, dim=axis))
-ar.register_function("torch", "shape", lambda x: tuple(x.shape))
+ar.register_function("torch", "shape", lambda x: x.shape)
 ar.register_function("torch", "gather", lambda x, indices: x[indices])
 
 try:
