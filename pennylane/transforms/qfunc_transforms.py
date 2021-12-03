@@ -158,6 +158,12 @@ class single_tape_transform:
         functools.update_wrapper(self, transform_fn)
 
     def __call__(self, tape, *args, **kwargs):
+        if tape.__name__ in qml.ops.__all__:
+            op = tape
+            with qml.tape.QuantumTape() as tape:
+                print(*args, **kwargsz)
+                op(*args, **kwargs)
+
         tape_class = type(tape.__class__.__name__, (NonQueuingTape, tape.__class__), {})
 
         # new_tape, when first created, is of the class (NonQueuingTape, tape.__class__), so that it

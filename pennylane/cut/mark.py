@@ -12,14 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Functionality for marking manually-placed cut locations"""
+from functools import wraps
 
+from pennylane import apply
 from pennylane.operation import Operation, AnyWires
-from pennylane.ops.identity import Identity
 from pennylane.tape import QuantumTape
+from pennylane.ops import __all__ as all_ops
+
+GATE_CUTS_SUPPORTED = ["CZ"]
 
 
 class wire(Operation):
-    r"""pennylane.cut.wire(wires)
+    """pennylane.cut.wire(wires)
     Manually place a wire cut in a circuit.
 
     Marks the placement of a wire cut of the type introduced in
@@ -39,3 +43,30 @@ class wire(Operation):
         with QuantumTape() as tape:
             ...
         return tape
+
+
+class CutOperation(QuantumTape):
+    ...
+
+
+def gate(op):
+    """TODO
+
+    Args:
+        operation:
+
+    Returns:
+
+    """
+    if op.__name__ not in GATE_CUTS_SUPPORTED:
+        supported_gates = ", ".join(GATE_CUTS_SUPPORTED)
+        err_msg = "Gate cutting can only be applied to the following gates: " + supported_gates
+        raise ValueError(err_msg)
+
+    @wraps(op)
+    def wrapped_op(*args, **kwargs):
+        """Replaces ``op`` with a ``CutOperation``, which is a special type of ``QuantumTape``."""
+        with CutOperation():
+            op(*args, **kwargs)
+
+    return wrapped_op
