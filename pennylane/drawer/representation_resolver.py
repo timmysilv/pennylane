@@ -406,6 +406,10 @@ class RepresentationResolver:
                 op.data, "M", self.matrix_cache
             )
 
+        elif base_name == "GateCut":
+            base_op = op.parameters[0]
+            representation = "|" + self.operator_representation(base_op, wire) + "|"
+
         else:
             r = ", ".join([self.single_parameter_representation(par) for par in op.data])
             representation = f"{name}({r})"

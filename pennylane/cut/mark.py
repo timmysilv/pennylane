@@ -15,8 +15,9 @@
 from functools import wraps
 from typing import Type
 
+from pennylane import apply
 from pennylane.operation import Operation, AnyWires
-from pennylane.tape import QuantumTape
+from pennylane.tape import QuantumTape, stop_recording
 
 GATE_CUTS_SUPPORTED = ["CZ"]
 
@@ -26,8 +27,8 @@ class wire(Operation):
     Manually place a wire cut in a circuit.
 
     Marks the placement of a wire cut of the type introduced in
-    `Peng et al. <https://arxiv.org/abs/1904.00102>`__. Behaves like an :class:`~.Identity`
-    operation if cutting subsequent functionality is not applied to the whole circuit.
+    `Peng et al. <https://arxiv.org/abs/1904.00102>`__. Behaves like an identity operation if
+    cutting subsequent functionality is not applied to the whole circuit.
 
     Args:
         wires (Sequence[int] or int): the wires to be cut
@@ -41,17 +42,28 @@ class wire(Operation):
     def label(self, decimals=None, base_label=None):
         return "|️"
 
-    def expand(self):
+    def expand(self) -> QuantumTape:
         with QuantumTape() as tape:
             ...
         return tape
 
 
-class CutOperation(QuantumTape):
-    ...
+class GateCut(Operation):
+    num_wires = AnyWires
+    grad_method = None
+
+    def __init__(self, wrapped: Operation):
+        wires = wrapped.wires
+        super().__init__(wrapped, wires=wires)
+
+    def expand(self) -> QuantumTape:
+        wrapped = self.parameters[0]
+        with QuantumTape() as tape:
+            apply(wrapped)
+        return tape
 
 
-def gate(op: Type[Operation]):
+def gate(op: Type[Operation]) -> callable:
     """pennylane.cut.gate(operation)
     Manually place a wire cut in a circuit.
 
@@ -60,6 +72,10 @@ def gate(op: Type[Operation]):
 
     Args:
         op (Operation type): the operation to be cut
+
+    Returns:
+        Operation type: a :class:`~.GateCut` operation that can be expanded to the original
+        operation
     """
     if op.__name__ not in GATE_CUTS_SUPPORTED:
         supported_gates = ", ".join(GATE_CUTS_SUPPORTED)
@@ -69,7 +85,8 @@ def gate(op: Type[Operation]):
     @wraps(op)
     def wrapped_op(*args, **kwargs):
         """Replaces ``op`` with a ``CutOperation``, which is a special type of ``QuantumTape``."""
-        with CutOperation():
-            op(*args, **kwargs)
+        with stop_recording():
+            o = op(*args, **kwargs)
+        GateCut(o)
 
     return wrapped_op
