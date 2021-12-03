@@ -1,4 +1,4 @@
-# Copyright 2018-2021 Xanadu Quantum Technologies Inc.
+# Copyright 2021 Xanadu Quantum Technologies Inc.
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,6 +34,9 @@ class wire(Operation):
     """
     num_wires = AnyWires
     grad_method = None
+
+    def __init__(self, wires):
+        super().__init__(wires=wires)
 
     def label(self, decimals=None, base_label=None):
         return "|️"
