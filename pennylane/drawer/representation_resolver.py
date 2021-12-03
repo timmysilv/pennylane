@@ -67,6 +67,7 @@ class RepresentationResolver:
         "X": "x",
         "P": "p",
         "Barrier": "||",
+        "wire": "|",
     }
     """Symbol used for uncontrolled wires."""
 
