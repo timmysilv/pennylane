@@ -90,3 +90,18 @@ def gate(op: Type[Operation]) -> callable:
         GateCut(o)
 
     return wrapped_op
+
+
+class MeasureNode(Operation):
+    num_wires = 1
+    grad_method = None
+
+
+class PrepareNode(Operation):
+    num_wires = 1
+    grad_method = None
+
+
+class OperationNode(Operation):
+    num_wires = 1
+    grad_method = None

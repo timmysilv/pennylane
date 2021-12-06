@@ -13,3 +13,4 @@
 # limitations under the License.
 
 from .mark import gate, wire
+from .utils import get_graph, draw
