@@ -143,6 +143,11 @@ class CircuitGraph:
         Required to translate between wires and indices of the wires on the device."""
         self.num_wires = len(wires)
         """int: number of wires the circuit contains"""
+
+        # For computing depth; want only a graph with the operations, not
+        # including the observables
+        self._operation_graph = None
+
         for k, op in enumerate(queue):
             op.queue_idx = k  # store the queue index in the Operator
 
@@ -183,10 +188,6 @@ class CircuitGraph:
 
                 # Create an edge between this and the previous operator
                 self._graph.add_edge(wire[i - 1], wire[i])
-
-        # For computing depth; want only a graph with the operations, not
-        # including the observables
-        self._operation_graph = None
 
         # Required to keep track if we need to handle multiple returned
         # observables per wire
@@ -630,12 +631,18 @@ class CircuitGraph:
         # If there are operations but depth is uncomputed, compute the truncated graph
         # with only the operations, and return the longest path + 1 (since the path is
         # expressed in terms of edges, and we want it in terms of nodes).
-        if self._depth is None and self.operations:
-            if self._operation_graph is None:
-                self._operation_graph = self.graph.subgraph(self.operations)
-                self._depth = nx.dag_longest_path_length(self._operation_graph) + 1
+        if self._depth is None:
+            self._depth = nx.dag_longest_path_length(self.operation_graph) + 1
 
         return self._depth
+
+    @property
+    def operation_graph(self):
+        # For computing depth; want only a graph with the operations, not
+        # including the observables
+        if self._operation_graph is None:
+            self._operation_graph = self.graph.subgraph(self.operations)
+        return self._operation_graph
 
     def has_path(self, a, b):
         """Checks if a path exists between the two given nodes.
