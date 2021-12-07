@@ -13,6 +13,9 @@
 # limitations under the License.
 """Functionality for applying cuts to the circuit graph"""
 from pennylane.cut.mark import MeasureNode, PrepareNode, OperationNode, WireCut, GateCut
+import networkx as nx
+from typing import Tuple, Dict
+from pennylane.operation import Operator
 
 
 def apply_cuts(g):
@@ -24,6 +27,19 @@ def apply_cuts(g):
         if isinstance(n, GateCut):
             _remove_gate_node(n, g)
 
+
+def to_nodes_and_edges(g: nx.Graph) -> Tuple[Dict[Operator, str], Tuple[Tuple[str, str]]]:
+    mapping = {op: f"node_{i}" for i, op in enumerate(g.nodes)}
+    edges = tuple((mapping[e1], mapping[e2]) for e1, e2 in g.edges)
+    return mapping, edges
+
+
+def place_cuts(g: nx.Graph):
+
+
+
+def place_cuts(g: nx.Graph, wire_capacity: int, gate_capacity: int, **kwargs):
+    ...
 
 def _remove_wire_node(n, g):
     predecessors = g.predecessors(n)
