@@ -17,6 +17,8 @@ import networkx as nx
 from typing import Tuple, Dict, Sequence, Any
 from pennylane.operation import Operator
 
+from networkx import weakly_connected_components as disconnect_graph
+
 
 def apply_cuts(g):
     original_nodes = tuple(g.nodes)
@@ -29,16 +31,16 @@ def apply_cuts(g):
 
 
 def find_cuts(g: nx.Graph, wire_capacity: int, gate_capacity: int, **kwargs) -> \
-        Tuple[Tuple[Tuple[Operator, Operator, Any]], Tuple[Operator], Tuple[Tuple[Operator]], Dict]:
+        Tuple[Tuple[Tuple[Operator, Operator, Any]], Tuple[Operator], Dict]: # Tuple[Tuple[Operator]]
     nodes = list(g.nodes)
     wire_cuts = ((nodes[0], nodes[1], 0),)
     gate_cuts = (nodes[2],)
-    partitioned_nodes = ((nodes[0],), (nodes[1],) + tuple(nodes[3:]))
-    return wire_cuts, gate_cuts, partitioned_nodes, {}
+    # partitioned_nodes = ((nodes[0],), (nodes[1],) + tuple(nodes[3:]))
+    return wire_cuts, gate_cuts, {} #, partitioned_nodes
 
 
 def place_cuts(g: nx.Graph, wire_capacity: int, gate_capacity: int, **kwargs):
-    wire_cuts, gate_cuts, partitioned_nodes, opt_results = find_cuts(g, wire_capacity, gate_capacity, **kwargs)
+    wire_cuts, gate_cuts, opt_results = find_cuts(g, wire_capacity, gate_capacity, **kwargs)
 
     for n in gate_cuts:
         _remove_gate_cut_node(n, g)

@@ -13,3 +13,8 @@
 # limitations under the License.
 """Utility functions for circuit cutting"""
 import networkx as nx
+
+def draw(g: nx.Graph):
+    pos = nx.nx_agraph.graphviz_layout(g, prog="dot")
+    label_dict = {o: o.name for o in g.nodes}
+    nx.draw(g, with_labels=True, labels=label_dict, pos=pos)
