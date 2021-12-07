@@ -14,7 +14,7 @@
 """Functionality for applying cuts to the circuit graph"""
 from pennylane.cut.mark import MeasureNode, PrepareNode, OperationNode, WireCut, GateCut
 import networkx as nx
-from typing import Tuple, Dict
+from typing import Tuple, Dict, Sequence, Any
 from pennylane.operation import Operator
 
 
@@ -23,25 +23,36 @@ def apply_cuts(g):
 
     for n in original_nodes:
         if isinstance(n, WireCut):
-            _remove_wire_node(n, g)
+            _remove_wire_cut_node(n, g)
         if isinstance(n, GateCut):
-            _remove_gate_node(n, g)
+            _remove_gate_cut_node(n, g)
 
 
-def to_nodes_and_edges(g: nx.Graph) -> Tuple[Dict[Operator, str], Tuple[Tuple[str, str]]]:
-    mapping = {op: f"node_{i}" for i, op in enumerate(g.nodes)}
-    edges = tuple((mapping[e1], mapping[e2]) for e1, e2 in g.edges)
-    return mapping, edges
-
-
-def place_cuts(g: nx.Graph):
-
+def find_cuts(g: nx.Graph, wire_capacity: int, gate_capacity: int, **kwargs) -> \
+        Tuple[Tuple[Tuple[Operator, Operator, Any]], Tuple[Operator], Tuple[Tuple[Operator]], Dict]:
+    nodes = list(g.nodes)
+    wire_cuts = ((nodes[0], nodes[1], 0),)
+    gate_cuts = (nodes[2],)
+    partitioned_nodes = ((nodes[0],), (nodes[1],) + tuple(nodes[3:]))
+    return wire_cuts, gate_cuts, partitioned_nodes, {}
 
 
 def place_cuts(g: nx.Graph, wire_capacity: int, gate_capacity: int, **kwargs):
-    ...
+    wire_cuts, gate_cuts, partitioned_nodes, opt_results = find_cuts(g, wire_capacity, gate_capacity, **kwargs)
 
-def _remove_wire_node(n, g):
+    for n in gate_cuts:
+        _remove_gate_cut_node(n, g)
+
+    for op1, op2, wire in wire_cuts:
+        meas = MeasureNode(wires=wire)
+        prep = PrepareNode(wires=wire)
+        g.add_node(meas)
+        g.add_node(prep)
+        g.add_edge(op1, meas)
+        g.add_edge(prep, op2)
+
+
+def _remove_wire_cut_node(n, g):
     predecessors = g.predecessors(n)
     successors = g.successors(n)
 
@@ -62,7 +73,7 @@ def _remove_wire_node(n, g):
                 g.add_edge(op, s)
 
 
-def _remove_gate_node(n, g):
+def _remove_gate_cut_node(n, g):
     predecessors = list(g.predecessors(n))
     successors = list(g.successors(n))
 
