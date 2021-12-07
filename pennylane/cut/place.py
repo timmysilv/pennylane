@@ -12,17 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Functionality for applying cuts to the circuit graph"""
-from pennylane.cut.mark import MeasureNode, PrepareNode, OperationNode
+from pennylane.cut.mark import MeasureNode, PrepareNode, OperationNode, WireCut, GateCut
 
 
 def apply_cuts(g):
     original_nodes = tuple(g.nodes)
-    original_node_names = tuple(dict(g.nodes(data="label")).values())
 
-    for n, name in zip(original_nodes, original_node_names):
-        if name == "wire":
+    for n in original_nodes:
+        if isinstance(n, WireCut):
             _remove_wire_node(n, g)
-        if name == "GateCut":
+        if isinstance(n, GateCut):
             _remove_gate_node(n, g)
 
 
@@ -33,36 +32,33 @@ def _remove_wire_node(n, g):
     g.remove_node(n)
 
     for p in predecessors:
-        # p_wires = g[p]["wires"]
-        print(g[p])
-    #     for wire in p.wires:
-    #         if wire in n.wires:
-    #             op = MeasureNode(wires=wire)
-    #             g.add_node(op)
-    #             g.add_edge(p, op)
-    #
-    # for s in successors:
-    #     for wire in s.wires:
-    #         if wire in n.wires:
-    #             op = PrepareNode(wires=wire)
-    #             g.add_node(op)
-    #             g.add_edge(op, s)
+        for wire in p.wires:
+            if wire in n.wires:
+                op = MeasureNode(wires=wire)
+                g.add_node(op)
+                g.add_edge(p, op)
+
+    for s in successors:
+        for wire in s.wires:
+            if wire in n.wires:
+                op = PrepareNode(wires=wire)
+                g.add_node(op)
+                g.add_edge(op, s)
 
 
 def _remove_gate_node(n, g):
-    ...
-    # predecessors = list(g.predecessors(n))
-    # successors = list(g.successors(n))
-    #
-    # g.remove_node(n)
-    #
-    # n_wires = n.wires
-    #
-    # for wire in n_wires:
-    #     p_wire = [p for p in predecessors if wire in p.wires][0]
-    #     s_wire = [s for s in successors if wire in s.wires][0]
-    #
-    #     op = OperationNode(wires=wire)
-    #     g.add_node(op)
-    #     g.add_edge(p_wire, op)
-    #     g.add_edge(op, s_wire)
+    predecessors = list(g.predecessors(n))
+    successors = list(g.successors(n))
+
+    g.remove_node(n)
+
+    n_wires = n.wires
+
+    for wire in n_wires:
+        p_wire = [p for p in predecessors if wire in p.wires][0]
+        s_wire = [s for s in successors if wire in s.wires][0]
+
+        op = OperationNode(wires=wire)
+        g.add_node(op)
+        g.add_edge(p_wire, op)
+        g.add_edge(op, s_wire)
