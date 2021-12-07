@@ -22,13 +22,13 @@ from pennylane.tape import QuantumTape, stop_recording
 GATE_CUTS_SUPPORTED = ["CZ"]
 
 
-class wire(Operation):
+class WireCut(Operation):
     """pennylane.cut.wire(wires)
     Manually place a wire cut in a circuit.
 
     Marks the placement of a wire cut of the type introduced in
     `Peng et al. <https://arxiv.org/abs/1904.00102>`__. Behaves like an identity operation if
-    cutting subsequent functionality is not applied to the whole circuit.
+    subsequent cutting functionality is not applied to the whole circuit.
 
     Args:
         wires (Sequence[int] or int): the wires to be cut
@@ -49,6 +49,8 @@ class wire(Operation):
 
 
 class GateCut(Operation):
+    """TODO.
+    """
     num_wires = AnyWires
     grad_method = None
 
@@ -63,9 +65,9 @@ class GateCut(Operation):
         return tape
 
 
-def gate(op: Type[Operation]) -> callable:
-    """pennylane.cut.gate(operation)
-    Manually place a wire cut in a circuit.
+def gate_cut(op: Type[Operation]) -> callable:
+    """pennylane.cut.gate_cut(operation)
+    Manually place a gate cut in a circuit.
 
     Marks the placement of a gate cut of the type introduced in
     `Mitarai et al. <https://arxiv.org/abs/1909.07534>`__.

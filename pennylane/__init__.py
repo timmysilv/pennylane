@@ -78,7 +78,7 @@ import pennylane.gradients  # pylint:disable=wrong-import-order
 from pennylane.interfaces.batch import execute  # pylint:disable=wrong-import-order
 
 # Circuit cutting
-import pennylane.cut
+from pennylane.cut import WireCut as wire_cut, gate_cut
 
 # Look for an existing configuration file
 default_config = Configuration("config.toml")
