@@ -688,3 +688,50 @@ class CircuitGraph:
                 counts.max() if counts.size != 0 else 1
             )  # qml.state() will result in an empty array
         return self._max_simultaneous_measurements
+
+    def predecessors(self, op):
+        """TODO. Finds direct predecessors of a given op.
+
+        Args:
+            op:
+
+        Returns:
+
+        """
+        return self.graph.predecessors(op)
+
+    def successors(self, op):
+        """TODO. Finds direct successors of a given op.
+
+        Args:
+            op:
+
+        Returns:
+
+        """
+        return self.graph.successors(op)
+
+    def remove_operation(self, op):
+        """TODO. Removes a given op.
+
+        Args:
+            op:
+
+        Returns:
+
+        """
+        indx = op.queue_idx
+        try:
+            assert self.operations.index(op) == indx
+        except ValueError as e:
+            raise ValueError(f"Operation {op.name} is not present") from e
+
+        for op_ in self.operations[indx + 1:]:
+            op_.queue_idx -= 1
+
+        self.operations.remove(op)
+        self._graph.remove_node(op)
+        self._operation_graph.remove_node(op)
+
+        for wire in op.wires:
+            self._grid[wire].remove(op)
