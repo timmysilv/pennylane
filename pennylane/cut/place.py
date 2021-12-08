@@ -26,7 +26,31 @@ import itertools
 
 
 def disconnect_graph(g: nx.Graph):
-    return (nx.subgraph(g, nodes) for nodes in weakly_connected_components(g))
+    g = g.copy()
+    qg = g.copy()
+    g_edges = list(g.edges(data="type"))
+
+    for node1, node2, t in g_edges:
+        if t is None:
+            qg.remove_edge(node1, node2)
+        else:
+            g.remove_edge(node1, node2)
+
+    subgraph_nodes = list(nx.weakly_connected_components(g))
+    subgraphs = [nx.subgraph(g, s) for s in subgraph_nodes]
+
+    mapping = {}
+    for i, s in enumerate(subgraph_nodes):
+        nodes = list(s)
+        n1 = nodes[0]
+
+        for n2 in nodes[1:]:
+            qg = nx.contracted_nodes(qg, n1, n2)
+        mapping[n1] = i
+
+    nx.relabel_nodes(qg, mapping, copy=False)
+
+    return subgraphs, qg
 
 
 def get_dag(tape):
@@ -71,7 +95,8 @@ def apply_cuts(g):
 def find_cuts(g: nx.Graph, wire_capacity: int, gate_capacity: int, **kwargs) -> \
         Tuple[Tuple[Tuple[Operator, Operator, Any]], Tuple[Operator], Dict]: # Tuple[Tuple[Operator]]
     nodes = list(g.nodes)
-    wire_cuts = ((nodes[0], nodes[1], 0),)
+    # wire_cuts = ((nodes[0], nodes[1], 0),)
+    wire_cuts = ()
     gate_cuts = ()# (nodes[3],)
     # partitioned_nodes = ((nodes[0],), (nodes[1],) + tuple(nodes[3:]))
     return wire_cuts, gate_cuts, {} #, partitioned_nodes
@@ -90,7 +115,7 @@ def place_cuts(g: nx.Graph, wire_capacity: int, gate_capacity: int, **kwargs):
         g.add_node(prep)
         g.add_edge(op1, meas)
         g.add_edge(prep, op2)
-        g.add_edge(meas, prep, type="wire_cut")
+        g.add_edge(meas, prep, type="wire_cut", pair=(meas, prep))
 
 
 def _remove_wire_cut_node(n, g):
@@ -121,7 +146,7 @@ def _remove_wire_cut_node(n, g):
     for wire in measure_wires.keys():
         measure = measure_wires[wire]
         prepare = prepare_wires[wire]
-        g.add_edge(measure, prepare, type="wire_cut")
+        g.add_edge(measure, prepare, type="wire_cut", pair=(measure, prepare))
 
 
 def _remove_gate_cut_node(n, g):
@@ -143,4 +168,4 @@ def _remove_gate_cut_node(n, g):
         op_nodes.append(op)
 
     for op1, op2 in itertools.combinations(op_nodes, r=2):
-        g.add_edge(op1, op2, type="gate_cut")
+        g.add_edge(op1, op2, type="gate_cut", pair=(op1, op2))
