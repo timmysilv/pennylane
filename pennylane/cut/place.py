@@ -32,6 +32,17 @@ def disconnect_graph(g: nx.Graph):
     qg = g.copy()
     g_edges = list(g.edges(data="type"))
 
+    meas_prep_on_wire = {}
+
+    for n in nx.topological_sort(g):
+        if isinstance(n, (MeasureNode, PrepareNode)):
+            wire = n.wires[0]
+
+            if meas_prep_on_wire.get(wire, None) is None:
+                meas_prep_on_wire[wire] = [n]
+            else:
+                meas_prep_on_wire[wire].append(n)
+
     for node1, node2, t in g_edges:
         if t is None:
             qg.remove_edge(node1, node2)
@@ -40,6 +51,23 @@ def disconnect_graph(g: nx.Graph):
 
     subgraph_nodes = list(nx.weakly_connected_components(g))
     subgraphs = [nx.subgraph(g, s) for s in subgraph_nodes]
+
+    for s in subgraphs:
+        for meas_prep in meas_prep_on_wire.values():
+            order = []
+            for n in meas_prep:
+                try:
+                    s[n]
+                    order.append(n)
+                except KeyError:
+                    pass
+            for i, o in enumerate(order):
+                if isinstance(o, MeasureNode):
+                    try:
+                        o_next = order[i + 1]
+                        g.add_edge(o, o_next)
+                    except IndexError:
+                        pass
 
     mapping = {}
     for i, s in enumerate(subgraph_nodes):
