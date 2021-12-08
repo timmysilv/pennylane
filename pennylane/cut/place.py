@@ -22,6 +22,7 @@ from pennylane.measure import MeasurementProcess
 from pennylane.operation import Tensor
 from pennylane.circuit_graph import CircuitGraph
 from pennylane.operation import Expectation
+import itertools
 
 
 def disconnect_graph(g: nx.Graph):
@@ -89,6 +90,7 @@ def place_cuts(g: nx.Graph, wire_capacity: int, gate_capacity: int, **kwargs):
         g.add_node(prep)
         g.add_edge(op1, meas)
         g.add_edge(prep, op2)
+        g.add_edge(meas, prep, type="wire_cut")
 
 
 def _remove_wire_cut_node(n, g):
@@ -97,12 +99,16 @@ def _remove_wire_cut_node(n, g):
 
     g.remove_node(n)
 
+    measure_wires = {}
+    prepare_wires = {}
+
     for p in predecessors:
         for wire in p.wires:
             if wire in n.wires:
                 op = MeasureNode(wires=wire)
                 g.add_node(op)
                 g.add_edge(p, op)
+                measure_wires[wire] = op
 
     for s in successors:
         for wire in s.wires:
@@ -110,6 +116,12 @@ def _remove_wire_cut_node(n, g):
                 op = PrepareNode(wires=wire)
                 g.add_node(op)
                 g.add_edge(op, s)
+                prepare_wires[wire] = op
+
+    for wire in measure_wires.keys():
+        measure = measure_wires[wire]
+        prepare = prepare_wires[wire]
+        g.add_edge(measure, prepare, type="wire_cut")
 
 
 def _remove_gate_cut_node(n, g):
@@ -120,6 +132,7 @@ def _remove_gate_cut_node(n, g):
 
     n_wires = n.wires
 
+    op_nodes = []
     for wire in n_wires:
         p_wire = [p for p in predecessors if wire in p.wires][-1]  # TODO: check if ordered
         s_wire = [s for s in successors if wire in s.wires][0]
@@ -127,3 +140,7 @@ def _remove_gate_cut_node(n, g):
         g.add_node(op)
         g.add_edge(p_wire, op)
         g.add_edge(op, s_wire)
+        op_nodes.append(op)
+
+    for op1, op2 in itertools.combinations(op_nodes, r=2):
+        g.add_edge(op1, op2, type="gate_cut")
