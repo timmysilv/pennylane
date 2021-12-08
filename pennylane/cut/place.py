@@ -17,7 +17,40 @@ import networkx as nx
 from typing import Tuple, Dict, Sequence, Any
 from pennylane.operation import Operator
 
-from networkx import weakly_connected_components as disconnect_graph
+from networkx import weakly_connected_components
+from pennylane.measure import MeasurementProcess
+from pennylane.operation import Tensor
+from pennylane.circuit_graph import CircuitGraph
+from pennylane.operation import Expectation
+
+
+def disconnect_graph(g: nx.Graph):
+    return (nx.subgraph(g, nodes) for nodes in weakly_connected_components(g))
+
+
+def get_dag(tape):
+    g = tape.graph.graph.copy()
+    meas = tape.measurements
+    assert len(meas) == 1
+    meas = meas[0]
+
+    assert meas.return_type is Expectation
+
+    obs = meas.obs
+
+    if isinstance(obs, Tensor):
+        terms = obs.obs
+        predecessors = list(g.predecessors(obs))
+
+        g.remove_node(obs)
+        for t in terms:
+            g.add_node(t)
+            for wire in t.wires:
+                for p in predecessors:
+                    if wire in p.wires:
+                        g.add_edge(p, t)
+
+    return g
 
 
 def apply_cuts(g):
