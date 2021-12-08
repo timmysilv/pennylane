@@ -23,6 +23,8 @@ from pennylane.operation import Tensor
 from pennylane.circuit_graph import CircuitGraph
 from pennylane.operation import Expectation
 import itertools
+from pennylane.tape import QuantumTape
+from pennylane import apply
 
 
 def disconnect_graph(g: nx.Graph):
@@ -147,6 +149,17 @@ def _remove_wire_cut_node(n, g):
         measure = measure_wires[wire]
         prepare = prepare_wires[wire]
         g.add_edge(measure, prepare, type="wire_cut", pair=(measure, prepare))
+
+
+def dag_to_tape(g):
+
+    ops = nx.topological_sort(g)
+
+    with QuantumTape() as tape:
+        for o in ops:
+            apply(o)
+
+    return tape
 
 
 def _remove_gate_cut_node(n, g):
