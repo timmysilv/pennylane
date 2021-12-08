@@ -14,7 +14,7 @@
 from functools import partial
 from typing import Any, Callable, Dict, Optional, Sequence, Tuple, Union
 
-from networkx import DiGraph
+from networkx import MultiDiGraph
 
 from pennylane.operation import AnyWires, Operation, Operator
 from pennylane.tape import QuantumTape
@@ -46,7 +46,7 @@ def cut_circuit(
     tape: QuantumTape, method: Optional[Union[str, Callable]] = None, **kwargs
 ) -> Tuple[Tuple[QuantumTape], Callable]:
     """Main transform"""
-    g = tape.graph.graph.copy()
+    g = tape_to_graph(tape)
 
     # Iterate over ``WireCut`` operations in tape and remove them using remove_wire_cut_node()
     for op in tape.operations:
@@ -67,7 +67,12 @@ def cut_circuit(
     return tapes, partial(contract, shapes=shapes, communication_graph=communication_graph)
 
 
-def remove_wire_cut_node(node: WireCut, graph: DiGraph):
+def tape_to_graph(tape: QuantumTape) -> MultiDiGraph:
+    """Converts a quantum tape to a directed multigraph."""
+    ...
+
+
+def remove_wire_cut_node(node: WireCut, graph: MultiDiGraph):
     """Removes a WireCut node from the graph"""
     predecessors = graph.predecessors(node)
     successors = graph.successors(node)
@@ -109,7 +114,7 @@ def remove_wire_cut_node(node: WireCut, graph: DiGraph):
         graph.add_edge(measure, prepare, pair=(measure, prepare))
 
 
-def find_and_place_cuts(graph: DiGraph, method: Union[str, Callable], **kwargs):
+def find_and_place_cuts(graph: MultiDiGraph, method: Union[str, Callable], **kwargs):
     """Automatically find additional cuts and place them in the graph. A ``method`` can be
     explicitly passed as a callable, or built-in ones can be used by specifying the corresponding
     string."""
@@ -117,7 +122,7 @@ def find_and_place_cuts(graph: DiGraph, method: Union[str, Callable], **kwargs):
 
 
 def example_method(
-    graph: DiGraph,
+    graph: MultiDiGraph,
     max_wires: Optional[int],
     max_gates: Optional[int],
     num_partitions: Optional[int],
@@ -130,19 +135,19 @@ def example_method(
     ...
 
 
-def place_cuts(graph: DiGraph, wires: Tuple[Tuple[Operator, Operator, Any]]):
+def place_cuts(graph: MultiDiGraph, wires: Tuple[Tuple[Operator, Operator, Any]]):
     """Places wire cuts in ``graph`` according to ``wires`` which contains pairs of operators along
     with the wire passing between them to be cut."""
     ...
 
 
-def fragment_graph(graph: DiGraph) -> Tuple[Tuple[DiGraph], DiGraph]:
+def fragment_graph(graph: MultiDiGraph) -> Tuple[Tuple[MultiDiGraph], MultiDiGraph]:
     """Fragments a cut graph into a collection of subgraphs as well as returning the
     communication/quotient graph."""
     ...
 
 
-def graph_to_tape(graph: DiGraph) -> QuantumTape:
+def graph_to_tape(graph: MultiDiGraph) -> QuantumTape:
     """Converts a circuit graph to the corresponding quantum tape."""
     ...
 
@@ -152,6 +157,6 @@ def expand_fragment_tapes(tape: QuantumTape) -> Tuple[QuantumTape]:
     ...
 
 
-def contract(results: Sequence, shapes: Sequence[int], communication_graph: DiGraph):
+def contract(results: Sequence, shapes: Sequence[int], communication_graph: MultiDiGraph):
     """Returns the result of contracting the tensor network."""
     ...
