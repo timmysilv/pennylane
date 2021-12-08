@@ -69,7 +69,44 @@ def cut_circuit(
 
 def remove_wire_cut_node(node: WireCut, graph: DiGraph):
     """Removes a WireCut node from the graph"""
-    ...
+    predecessors = graph.predecessors(node)
+    successors = graph.successors(node)
+
+    graph.remove_node(node)
+
+    measure_wires = {}
+    prepare_wires = {}
+
+    for wire in node.wires:
+        meas = MeasureNode(wires=wire)
+        prep = PrepareNode(wires=wire)
+
+        graph.add_node(meas)
+        graph.add_node(prep)
+
+        measure_wires[wire] = meas
+        prepare_wires[wire] = prep
+
+    for p in predecessors:
+        for wire in p.wires:
+            if wire in node.wires:
+                op = MeasureNode(wires=wire)
+                graph.add_node(op)
+                graph.add_edge(p, op)
+                measure_wires[wire] = op
+
+    for s in successors:
+        for wire in s.wires:
+            if wire in node.wires:
+                op = PrepareNode(wires=wire)
+                graph.add_node(op)
+                graph.add_edge(op, s)
+                prepare_wires[wire] = op
+
+    for wire in measure_wires.keys():
+        measure = measure_wires[wire]
+        prepare = prepare_wires[wire]
+        graph.add_edge(measure, prepare, pair=(measure, prepare))
 
 
 def find_and_place_cuts(graph: DiGraph, method: Union[str, Callable], **kwargs):
