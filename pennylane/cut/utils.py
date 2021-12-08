@@ -13,8 +13,14 @@
 # limitations under the License.
 """Utility functions for circuit cutting"""
 import networkx as nx
+import itertools
 
 def draw(g: nx.Graph):
     pos = nx.nx_agraph.graphviz_layout(g, prog="dot")
+
+    for p1, p2 in itertools.combinations(pos.keys(), r=2):
+        if pos[p1] == pos[p2]:
+            pos[p1] = (pos[p1][0], pos[p1][0] - 1)
+
     label_dict = {o: o.name for o in g.nodes}
     nx.draw(g, with_labels=True, labels=label_dict, pos=pos)

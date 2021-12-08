@@ -21,11 +21,15 @@ from networkx import weakly_connected_components as disconnect_graph
 
 
 def apply_cuts(g):
-    original_nodes = tuple(g.nodes)
+    nodes = tuple(g.nodes)
 
-    for n in original_nodes:
+    for n in nodes:
         if isinstance(n, WireCut):
             _remove_wire_cut_node(n, g)
+
+    nodes = tuple(g.nodes)
+
+    for n in nodes:
         if isinstance(n, GateCut):
             _remove_gate_cut_node(n, g)
 
@@ -34,7 +38,7 @@ def find_cuts(g: nx.Graph, wire_capacity: int, gate_capacity: int, **kwargs) -> 
         Tuple[Tuple[Tuple[Operator, Operator, Any]], Tuple[Operator], Dict]: # Tuple[Tuple[Operator]]
     nodes = list(g.nodes)
     wire_cuts = ((nodes[0], nodes[1], 0),)
-    gate_cuts = (nodes[2],)
+    gate_cuts = ()# (nodes[3],)
     # partitioned_nodes = ((nodes[0],), (nodes[1],) + tuple(nodes[3:]))
     return wire_cuts, gate_cuts, {} #, partitioned_nodes
 
@@ -55,7 +59,7 @@ def place_cuts(g: nx.Graph, wire_capacity: int, gate_capacity: int, **kwargs):
 
 
 def _remove_wire_cut_node(n, g):
-    predecessors = g.predecessors(n)
+    predecessors = g.predecessors(n)  # TODO: What if no predecessors or successors?
     successors = g.successors(n)
 
     g.remove_node(n)
@@ -76,7 +80,7 @@ def _remove_wire_cut_node(n, g):
 
 
 def _remove_gate_cut_node(n, g):
-    predecessors = list(g.predecessors(n))
+    predecessors = list(g.predecessors(n))  # TODO: What if no predecessors or successors?
     successors = list(g.successors(n))
 
     g.remove_node(n)
@@ -84,9 +88,8 @@ def _remove_gate_cut_node(n, g):
     n_wires = n.wires
 
     for wire in n_wires:
-        p_wire = [p for p in predecessors if wire in p.wires][0]
+        p_wire = [p for p in predecessors if wire in p.wires][-1]  # TODO: check if ordered
         s_wire = [s for s in successors if wire in s.wires][0]
-
         op = OperationNode(wires=wire)
         g.add_node(op)
         g.add_edge(p_wire, op)
