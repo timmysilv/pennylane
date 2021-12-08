@@ -69,7 +69,20 @@ def cut_circuit(
 
 def tape_to_graph(tape: QuantumTape) -> MultiDiGraph:
     """Converts a quantum tape to a directed multigraph."""
-    ...
+    graph = MultiDiGraph()
+    graph.add_nodes_from(tape.operations)
+
+    wire_latest_node = {w: None for w in tape.wires}
+
+    for op in tape.operations:
+        for wire in op.wires:
+            if wire_latest_node[wire] is not None:
+                parent_op = wire_latest_node[wire]
+                graph.add_edge(parent_op, op)
+
+            wire_latest_node[wire] = op
+
+    return graph
 
 
 def remove_wire_cut_node(node: WireCut, graph: MultiDiGraph):
