@@ -25,6 +25,7 @@ from pennylane.operation import Expectation
 import itertools
 from pennylane.tape import QuantumTape
 from pennylane import apply
+from pennylane.wires import Wires
 
 
 def disconnect_graph(g: nx.Graph):
@@ -180,12 +181,35 @@ def _remove_wire_cut_node(n, g):
 
 
 def dag_to_tape(g):
-
-    ops = nx.topological_sort(g)
+    ops = list(nx.topological_sort(g))
 
     with QuantumTape() as tape:
         for o in ops:
             apply(o)
+
+    return fix_wires(tape)
+
+
+def fix_wires(tape):
+    g = tape.graph
+    grid = g._grid
+
+    mapping = {w: w for w in tape.wires}
+
+    for wire, ops in grid.items():
+        new_wire = False
+        for i, op in enumerate(ops):
+            if i + 1 != len(ops) and isinstance(op, MeasureNode):
+                new_wire = True
+                continue
+            if new_wire:
+                mapping[wire] = -wire
+                new_wires = [mapping[w] for w in op.wires]
+                op._wires = Wires(new_wires)
+
+    with QuantumTape() as tape:
+        for op in g.operations:
+            apply(op)
 
     return tape
 
