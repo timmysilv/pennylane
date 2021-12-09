@@ -122,7 +122,7 @@ def remove_wire_cut_node(node: WireCut, graph: MultiDiGraph):
 
 def remove_wire_cut_nodes(graph: MultiDiGraph):
     """Remove all WireCuts from the graph"""
-    for op in graph.nodes:
+    for op in list(graph.nodes):
         if isinstance(op, WireCut):
             remove_wire_cut_node(op, graph)
 
