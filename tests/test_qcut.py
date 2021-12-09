@@ -49,6 +49,7 @@ def compare_ops_list(ops1, ops2):
 
 
 def test_tape_to_graph():
+    """Test for the tape_to_graph function"""
     with qml.tape.QuantumTape() as tape:
         qml.BasisState([0, 1], wires=[0, 1])
         qml.RX(0.4, wires=0)
@@ -78,46 +79,62 @@ def test_tape_to_graph():
         assert e1[-1] == e2[-1]
 
 
-# class TestWireCutNode:
-#
-#     def test_simple(self):
-#         op = qcut.WireCut(wires=0)
-#
-#         with qml.tape.QuantumTape() as tape:
-#             qml.RX(0.4, wires=0)
-#             qml.apply(op)
-#             qml.RY(0.5, wires=0)
-#
-#         g = tape.graph.graph
-#
-#         qcut.remove_wire_cut_node(op, g)
-#
-#         ops = list(nx.topological_sort(g))
-#         expected_ops = [
-#             qml.RX(0.4, wires=0),
-#             qcut.MeasureNode(wires=0),
-#             qcut.PrepareNode(wires=0),
-#             qml.RY(0.5, wires=0),
-#         ]
-#
-#         compare_ops(ops, expected_ops)
-#         expected_edges = [
-#             (qml.RX(0.4, wires=0), qcut.MeasureNode(wires=0), {}),
-#             (qcut.MeasureNode(wires=0), qcut.PrepareNode(wires=0), {"pair": (qcut.MeasureNode(wires=0), qcut.PrepareNode(wires=0))}),
-#             (qcut.PrepareNode(wires=0), qml.RY(0.5, wires=0), {}),
-#         ]
-#         edges = list(g.edges(data=True))
-#
-#         compare_ops(edges[0][:2], expected_edges[0][:2])
-#         compare_ops(edges[1][:2], expected_edges[1][:2])
-#         compare_ops(edges[2][:2], expected_edges[2][:2])
-#
-#         assert edges[0][-1] == {}
-#         assert edges[2][-1] == {}
-#
-#         data = edges[1][-1]
-#         assert list(data.keys()) == ["pair"]
-#         compare_ops(list(data.values())[0], (qcut.MeasureNode(wires=0), qcut.PrepareNode(wires=0)))
+class TestRemoveWireCutNode:
+    """Tests for the remove_wire_cut_node function"""
 
+    def test_standard(self):
+        """Test on a typical circuit configuration"""
+        op = qcut.WireCut(wires=[0, 1])
 
+        with qml.tape.QuantumTape() as tape:
+            qml.CNOT(wires=[0, 1])
+            qml.RX(0.4, wires=1)
+            qml.apply(op)
+            qml.RY(0.5, wires=0)
+            qml.CRX(0.1, wires=[1, 0])
 
+        g = qcut.tape_to_graph(tape)
+        qcut.remove_wire_cut_node(op, g)
+
+        ops = list(nx.topological_sort(g))
+        expected_ops = [
+            qml.CNOT(wires=[0, 1]),
+            qml.RX(0.4, wires=1),
+            qcut.MeasureNode(wires=0),
+            qcut.MeasureNode(wires=1),
+            qcut.PrepareNode(wires=0),
+            qcut.PrepareNode(wires=1),
+            qml.RY(0.5, wires=0),
+            qml.CRX(0.1, wires=[1, 0]),
+        ]
+
+        compare_ops_list(ops, expected_ops)
+
+        expected_edges = [
+            (qml.CNOT(wires=[0, 1]), qml.RX(0.4, wires=1), {"wire": 1}),
+            (qml.CNOT(wires=[0, 1]), qcut.MeasureNode(wires=0), {"wire": 0}),
+            (qml.RX(0.4, wires=1), qcut.MeasureNode(wires=1), {"wire": 1}),
+            (qml.RY(0.5, wires=0), qml.CRX(0.1, wires=[1, 0]), {"wire": 0}),
+            (qcut.MeasureNode(wires=0), qcut.PrepareNode(wires=0), {"pair":(qcut.MeasureNode(wires=0), qcut.PrepareNode(wires=0)), "wire": 0}),
+            (qcut.PrepareNode(wires=[0]), qml.RY(0.5, wires=[0]), {'wire': 0}),
+            (qcut.MeasureNode(wires=[1]), qcut.PrepareNode(wires=[1]),
+             {'pair': (qcut.MeasureNode(wires=[1]), qcut.PrepareNode(wires=[1])), 'wire': 1}),
+            (qcut.PrepareNode(wires=[1]), qml.CRX(0.1, wires=[1, 0]), {'wire': 1}),
+        ]
+
+        edges = g.edges(data=True)
+        assert len(edges) == len(expected_edges)
+        for e1, e2 in zip(expected_edges, edges):
+            compare_ops_list(e1[:2], e2[:2])
+            assert e1[-1]["wire"] == e2[-1]["wire"]
+
+            p1 = e1[-1].get("pair", None)
+            if p1 is not None:
+                p2 = e2[-1]["pair"]
+                compare_ops_list(p1, p2)
+
+    def test_no_successor(self):
+        ...
+
+    def test_no_predecessor(self):
+        ...

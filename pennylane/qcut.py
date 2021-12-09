@@ -90,44 +90,38 @@ def tape_to_graph(tape: QuantumTape) -> MultiDiGraph:
 
 def remove_wire_cut_node(node: WireCut, graph: MultiDiGraph):
     """Removes a WireCut node from the graph"""
-    predecessors = graph.predecessors(node)
-    successors = graph.successors(node)
+    predecessors = graph.pred[node]
+    successors = graph.succ[node]
+
+    predecessor_on_wire = {}
+    for op, data in predecessors.items():
+        for d in data.values():
+            wire = d["wire"]
+            predecessor_on_wire[wire] = op
+
+    successor_on_wire = {}
+    for op, data in successors.items():
+        for d in data.values():
+            wire = d["wire"]
+            successor_on_wire[wire] = op
 
     graph.remove_node(node)
 
-    measure_wires = {}
-    prepare_wires = {}
-
     for wire in node.wires:
+        predecessor = predecessor_on_wire.get(wire, None)
+        successor = successor_on_wire.get(wire, None)
+
         meas = MeasureNode(wires=wire)
         prep = PrepareNode(wires=wire)
-
         graph.add_node(meas)
         graph.add_node(prep)
 
-        measure_wires[wire] = meas
-        prepare_wires[wire] = prep
+        graph.add_edge(meas, prep, pair=(meas, prep), wire=wire)
 
-    for p in predecessors:
-        for wire in p.wires:
-            if wire in node.wires:
-                op = MeasureNode(wires=wire)
-                graph.add_node(op)
-                graph.add_edge(p, op)
-                measure_wires[wire] = op
-
-    for s in successors:
-        for wire in s.wires:
-            if wire in node.wires:
-                op = PrepareNode(wires=wire)
-                graph.add_node(op)
-                graph.add_edge(op, s)
-                prepare_wires[wire] = op
-
-    for wire in measure_wires.keys():
-        measure = measure_wires[wire]
-        prepare = prepare_wires[wire]
-        graph.add_edge(measure, prepare, pair=(measure, prepare))
+        if predecessor is not None:
+            graph.add_edge(predecessor, meas, wire=wire)
+        if successor is not None:
+            graph.add_edge(prep, successor, wire=wire)
 
 
 def find_and_place_cuts(graph: MultiDiGraph, method: Union[str, Callable], **kwargs):
