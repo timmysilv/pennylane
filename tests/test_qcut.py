@@ -115,10 +115,9 @@ class TestRemoveWireCutNode:
             (qml.CNOT(wires=[0, 1]), qcut.MeasureNode(wires=0), {"wire": 0}),
             (qml.RX(0.4, wires=1), qcut.MeasureNode(wires=1), {"wire": 1}),
             (qml.RY(0.5, wires=0), qml.CRX(0.1, wires=[1, 0]), {"wire": 0}),
-            (qcut.MeasureNode(wires=0), qcut.PrepareNode(wires=0), {"pair":(qcut.MeasureNode(wires=0), qcut.PrepareNode(wires=0)), "wire": 0}),
+            (qcut.MeasureNode(wires=0), qcut.PrepareNode(wires=0), {"wire": 0}),
             (qcut.PrepareNode(wires=[0]), qml.RY(0.5, wires=[0]), {'wire': 0}),
-            (qcut.MeasureNode(wires=[1]), qcut.PrepareNode(wires=[1]),
-             {'pair': (qcut.MeasureNode(wires=[1]), qcut.PrepareNode(wires=[1])), 'wire': 1}),
+            (qcut.MeasureNode(wires=[1]), qcut.PrepareNode(wires=[1]), {'wire': 1}),
             (qcut.PrepareNode(wires=[1]), qml.CRX(0.1, wires=[1, 0]), {'wire': 1}),
         ]
 
@@ -126,12 +125,7 @@ class TestRemoveWireCutNode:
         assert len(edges) == len(expected_edges)
         for e1, e2 in zip(expected_edges, edges):
             compare_ops_list(e1[:2], e2[:2])
-            assert e1[-1]["wire"] == e2[-1]["wire"]
-
-            p1 = e1[-1].get("pair", None)
-            if p1 is not None:
-                p2 = e2[-1]["pair"]
-                compare_ops_list(p1, p2)
+            assert e1[-1] == e2[-1]
 
     def test_no_successor(self):
         ...

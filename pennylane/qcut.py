@@ -14,7 +14,7 @@
 from functools import partial
 from typing import Any, Callable, Dict, Optional, Sequence, Tuple, Union
 
-from networkx import MultiDiGraph
+from networkx import MultiDiGraph, weakly_connected_components
 
 from pennylane.operation import AnyWires, Operation, Operator
 from pennylane.tape import QuantumTape
@@ -116,7 +116,7 @@ def remove_wire_cut_node(node: WireCut, graph: MultiDiGraph):
         graph.add_node(meas)
         graph.add_node(prep)
 
-        graph.add_edge(meas, prep, pair=(meas, prep), wire=wire)
+        graph.add_edge(meas, prep, wire=wire)
 
         if predecessor is not None:
             graph.add_edge(predecessor, meas, wire=wire)
@@ -154,17 +154,30 @@ def place_cuts(graph: MultiDiGraph, wires: Tuple[Tuple[Operator, Operator, Any]]
 def fragment_graph(graph: MultiDiGraph) -> Tuple[Tuple[MultiDiGraph], MultiDiGraph]:
     """Fragments a cut graph into a collection of subgraphs as well as returning the
     communication/quotient graph."""
-    communication_graph = graph.copy()
-    edges = graph.edges(data="pair")
+    edges = graph.edges
+    cut_edges = []
 
-    for node1, node2, pair in edges:
-        if pair is None:
-            communication_graph.remove_edge(node1, node2)
-        else:
+    for node1, node2 in edges:
+        if isinstance(node1, MeasureNode):
+            assert isinstance(node2, PrepareNode)
+            cut_edges.append((node1, node2))
             graph.remove_edge(node1, node2)
 
+    subgraph_nodes = weakly_connected_components(graph)
+    subgraphs = tuple(graph.subgraph(n) for n in subgraph_nodes)
 
+    communication_graph = MultiDiGraph()
+    communication_graph.add_nodes_from(range(len(subgraphs)))
 
+    for node1, node1 in cut_edges:
+        for i, subgraph in enumerate(subgraphs):
+            if subgraph.has_node(node1):
+                start_fragment = i
+            if subgraph.has_node(node2):
+                end_fragment = i
+        communication_graph.add_edge(start_fragment, end_fragment, pair=(node1, node2))
+
+    return subgraphs, communication_graph
 
 
 def graph_to_tape(graph: MultiDiGraph) -> QuantumTape:
