@@ -47,11 +47,7 @@ def cut_circuit(
 ) -> Tuple[Tuple[QuantumTape], Callable]:
     """Main transform"""
     g = tape_to_graph(tape)
-
-    # Iterate over ``WireCut`` operations in tape and remove them using remove_wire_cut_node()
-    for op in tape.operations:
-        if isinstance(op, WireCut):
-            remove_wire_cut_node(op, g)
+    remove_wire_cut_nodes(g)
 
     if method is not None:
         find_and_place_cuts(g, method=method, **kwargs)
@@ -75,6 +71,13 @@ def tape_to_graph(tape: QuantumTape) -> MultiDiGraph:
 def remove_wire_cut_node(node: WireCut, graph: MultiDiGraph):
     """Removes a WireCut node from the graph"""
     ...
+
+
+def remove_wire_cut_nodes(graph: MultiDiGraph):
+    """Remove all WireCuts from the graph"""
+    for op in graph.operations:
+        if isinstance(op, WireCut):
+            remove_wire_cut_node(op, graph)
 
 
 def find_and_place_cuts(graph: MultiDiGraph, method: Union[str, Callable], **kwargs):
