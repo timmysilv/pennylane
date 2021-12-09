@@ -154,7 +154,17 @@ def place_cuts(graph: MultiDiGraph, wires: Tuple[Tuple[Operator, Operator, Any]]
 def fragment_graph(graph: MultiDiGraph) -> Tuple[Tuple[MultiDiGraph], MultiDiGraph]:
     """Fragments a cut graph into a collection of subgraphs as well as returning the
     communication/quotient graph."""
-    ...
+    communication_graph = graph.copy()
+    edges = graph.edges(data="pair")
+
+    for node1, node2, pair in edges:
+        if pair is None:
+            communication_graph.remove_edge(node1, node2)
+        else:
+            graph.remove_edge(node1, node2)
+
+
+
 
 
 def graph_to_tape(graph: MultiDiGraph) -> QuantumTape:
