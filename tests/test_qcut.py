@@ -173,3 +173,25 @@ class TestFragmentGraph:
 
         assert c_edge[:2] == (0, 1)
         compare_ops_list(c_edge[-1]["pair"],  (qcut.MeasureNode(wires=[0]), qcut.PrepareNode(wires=[0])))
+
+
+class TestGraphToTape:
+    """Tests for the graph_to_tape"""
+
+    def test_standard(self):
+        """Test on a typical circuit cutting configuration"""
+        with qml.tape.QuantumTape() as tape:
+            qml.Hadamard(wires=0)
+            qml.S(wires=0)
+
+            qcut.WireCut(wires=0)
+            qml.CNOT(wires=[0, 1])
+            qcut.WireCut(wires=0)
+
+            qml.T(wires=0)
+            qml.PauliZ(wires=1)
+            qml.expval()
+
+        g = qcut.tape_to_graph(tape)
+        qcut.remove_wire_cut_nodes(g)
+        subgraphs, communication_graph = qcut.fragment_graph(g)
