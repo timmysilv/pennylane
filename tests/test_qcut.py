@@ -132,3 +132,17 @@ class TestRemoveWireCutNode:
 
     def test_no_predecessor(self):
         ...
+
+
+class TestFragmentGraph:
+    """Tests for the fragment_graph function"""
+
+    def test_standard(self):
+        """Test on a typical circuit cutting configuration"""
+        with qml.tape.QuantumTape() as tape:
+            qml.Hadamard(wires=0)
+            qcut.WireCut(wires=0)
+            qml.S(wires=0)
+
+        g = qcut.tape_to_graph(tape)
+        qcut.
