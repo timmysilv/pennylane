@@ -19,6 +19,7 @@ from networkx import MultiDiGraph
 from pennylane.operation import AnyWires, Operation, Operator
 from pennylane.tape import QuantumTape
 from pennylane.transforms import batch_transform
+from pennylane.measure import MeasurementProcess
 
 
 class WireCut(Operation):
@@ -71,16 +72,18 @@ def tape_to_graph(tape: QuantumTape) -> MultiDiGraph:
     """Converts a quantum tape to a directed multigraph."""
     graph = MultiDiGraph()
     graph.add_nodes_from(tape.operations)
+    graph.add_nodes_from(tape.measurements)
 
     wire_latest_node = {w: None for w in tape.wires}
 
-    for op in tape.operations:
+    for op in tape.operations + tape.measurements:
         for wire in op.wires:
             if wire_latest_node[wire] is not None:
                 parent_op = wire_latest_node[wire]
-                graph.add_edge(parent_op, op)
+                graph.add_edge(parent_op, op, wire=wire)
 
-            wire_latest_node[wire] = op
+            if not isinstance(op, MeasurementProcess):
+                wire_latest_node[wire] = op
 
     return graph
 
