@@ -146,3 +146,30 @@ class TestFragmentGraph:
 
         g = qcut.tape_to_graph(tape)
         qcut.remove_wire_cut_nodes(g)
+        subgraphs, communication_graph = qcut.fragment_graph(g)
+
+        compare_ops_list(subgraphs[0].nodes, [qml.Hadamard(wires=0), qcut.MeasureNode(wires=0)])
+        compare_ops_list(subgraphs[1].nodes, [qml.S(wires=0), qcut.PrepareNode(wires=0)])
+
+        e0 = subgraphs[0].edges(data=True)
+        e1 = subgraphs[1].edges(data=True)
+
+        assert len(e0) == 1
+        assert len(e1) == 1
+
+        e0 = list(e0)[0]
+        compare_ops_list(e0[:2], [qml.Hadamard(wires=0), qcut.MeasureNode(wires=0)])
+        assert e0[-1] == {"wire": 0}
+
+        e1 = list(e1)[0]
+        compare_ops_list(e1[:2], [qcut.PrepareNode(wires=0), qml.S(wires=0)])
+        assert e1[-1] == {"wire": 0}
+
+        assert list(communication_graph.nodes) == [0, 1]
+        c_edges = communication_graph.edges(data=True)
+
+        assert len(c_edges) == 1
+        c_edge = list(c_edges)[0]
+
+        assert c_edge[:2] == (0, 1)
+        compare_ops_list(c_edge[-1]["pair"],  (qcut.MeasureNode(wires=[0]), qcut.PrepareNode(wires=[0])))

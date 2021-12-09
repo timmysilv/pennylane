@@ -157,10 +157,10 @@ def place_cuts(graph: MultiDiGraph, wires: Tuple[Tuple[Operator, Operator, Any]]
 def fragment_graph(graph: MultiDiGraph) -> Tuple[Tuple[MultiDiGraph], MultiDiGraph]:
     """Fragments a cut graph into a collection of subgraphs as well as returning the
     communication/quotient graph."""
-    edges = graph.edges
+    edges = list(graph.edges)
     cut_edges = []
 
-    for node1, node2 in edges:
+    for node1, node2, _ in edges:
         if isinstance(node1, MeasureNode):
             assert isinstance(node2, PrepareNode)
             cut_edges.append((node1, node2))
@@ -172,12 +172,13 @@ def fragment_graph(graph: MultiDiGraph) -> Tuple[Tuple[MultiDiGraph], MultiDiGra
     communication_graph = MultiDiGraph()
     communication_graph.add_nodes_from(range(len(subgraphs)))
 
-    for node1, node1 in cut_edges:
+    for node1, node2 in cut_edges:
         for i, subgraph in enumerate(subgraphs):
             if subgraph.has_node(node1):
                 start_fragment = i
             if subgraph.has_node(node2):
                 end_fragment = i
+
         communication_graph.add_edge(start_fragment, end_fragment, pair=(node1, node2))
 
     return subgraphs, communication_graph
