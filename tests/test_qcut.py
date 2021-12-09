@@ -145,4 +145,4 @@ class TestFragmentGraph:
             qml.S(wires=0)
 
         g = qcut.tape_to_graph(tape)
-        qcut.
+        qcut.remove_wire_cut_nodes(g)
