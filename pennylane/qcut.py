@@ -16,10 +16,12 @@ from typing import Any, Callable, Dict, Optional, Sequence, Tuple, Union
 
 from networkx import MultiDiGraph, weakly_connected_components
 
-from pennylane.operation import AnyWires, Operation, Operator
+from pennylane.operation import AnyWires, Operation, Operator, Tensor
 from pennylane.tape import QuantumTape
 from pennylane.transforms import batch_transform
 from pennylane.measure import MeasurementProcess
+from pennylane.wires import Wires
+from pennylane import apply
 
 
 class WireCut(Operation):
@@ -67,19 +69,35 @@ def cut_circuit(
 def tape_to_graph(tape: QuantumTape) -> MultiDiGraph:
     """Converts a quantum tape to a directed multigraph."""
     graph = MultiDiGraph()
-    graph.add_nodes_from(tape.operations)
-    graph.add_nodes_from(tape.measurements)
 
     wire_latest_node = {w: None for w in tape.wires}
 
-    for op in tape.operations + tape.measurements:
+    for order, op in enumerate(tape.operations):
+        graph.add_node(op, order=order)
         for wire in op.wires:
             if wire_latest_node[wire] is not None:
                 parent_op = wire_latest_node[wire]
                 graph.add_edge(parent_op, op, wire=wire)
+            wire_latest_node[wire] = op
 
-            if not isinstance(op, MeasurementProcess):
-                wire_latest_node[wire] = op
+    for m in tape.measurements:
+        obs = getattr(m, "obs", None)
+        if obs is not None and isinstance(obs, Tensor):
+            for o in obs.obs:
+                m_ = MeasurementProcess(m.return_type, obs=o)
+
+                graph.add_node(m_, order=order)
+                order += 1
+                for wire in o.wires:
+                    parent_op = wire_latest_node[wire]
+                    graph.add_edge(parent_op, m_, wire=wire)
+        else:
+            graph.add_node(m, order=order)
+            order += 1
+
+            for wire in m.wires:
+                parent_op = wire_latest_node[wire]
+                graph.add_edge(parent_op, m, wire=wire)
 
     return graph
 
@@ -101,6 +119,7 @@ def remove_wire_cut_node(node: WireCut, graph: MultiDiGraph):
             wire = d["wire"]
             successor_on_wire[wire] = op
 
+    order = graph.nodes[node]["order"]
     graph.remove_node(node)
 
     for wire in node.wires:
@@ -109,8 +128,8 @@ def remove_wire_cut_node(node: WireCut, graph: MultiDiGraph):
 
         meas = MeasureNode(wires=wire)
         prep = PrepareNode(wires=wire)
-        graph.add_node(meas)
-        graph.add_node(prep)
+        graph.add_node(meas, order=order)
+        graph.add_node(prep, order=order + 0.5)
 
         graph.add_edge(meas, prep, wire=wire)
 
@@ -186,7 +205,28 @@ def fragment_graph(graph: MultiDiGraph) -> Tuple[Tuple[MultiDiGraph], MultiDiGra
 
 def graph_to_tape(graph: MultiDiGraph) -> QuantumTape:
     """Converts a circuit graph to the corresponding quantum tape."""
-    ...
+    wires = Wires.all_wires([n.wires for n in graph.nodes])
+
+    ordered_ops = sorted((order, op) for op, order in graph.nodes(data="order"))
+
+    with QuantumTape() as tape:
+        for _, op in ordered_ops:
+            apply(op)
+
+    return tape
+
+
+        
+
+
+
+def _find_new_wire(wires: Wires) -> int:
+    """Finds a new wire label that is not in ``wires``."""
+    ctr = 0
+    while ctr in wires:
+        ctr += 1
+    return ctr
+
 
 
 def expand_fragment_tapes(tape: QuantumTape) -> Tuple[QuantumTape]:
