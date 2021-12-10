@@ -279,12 +279,17 @@ class TestExpandFragmentTapes:
         tapes_1, prep_nodes_1, meas_nodes_1 = qcut.expand_fragment_tapes(tape_1)
         # TODO
 
+
 class TestCutCircuit:
     """Tests for the cut_circuit transform"""
 
     def test_standard(self):
         """Test on a typical circuit cutting configuration"""
+        dev = qml.device("default.qubit", wires=3)
+
         with qml.tape.QuantumTape() as tape:
+            qml.RX(0.4, wires=0)
+            qml.RY(0.8, wires=1)
             qml.CNOT(wires=[0, 1])
             qml.Hadamard(wires=0)
             qml.S(wires=2)
@@ -298,4 +303,9 @@ class TestCutCircuit:
 
             qml.expval(qml.PauliZ(0) @ qml.PauliZ(2))
 
-        qcut.cut_circuit(tape)
+        tapes, postproc = qcut.cut_circuit(tape)
+
+        results = qml.execute(tapes, dev, gradient_fn=None)
+
+        out = postproc(results)
+        # print(out)

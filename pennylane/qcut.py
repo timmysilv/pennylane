@@ -17,12 +17,14 @@ from typing import Any, Callable, Dict, Optional, Sequence, Tuple, Union, List
 
 from networkx import MultiDiGraph, weakly_connected_components
 
-from pennylane.operation import AnyWires, Operation, Operator, Tensor
-from pennylane.tape import QuantumTape
+from pennylane.operation import AnyWires, Operation, Operator, Tensor, Expectation
+from pennylane.tape import QuantumTape, stop_recording
 from pennylane.transforms import batch_transform
 from pennylane.measure import MeasurementProcess
 from pennylane.wires import Wires
 from pennylane import apply, PauliX, PauliY, PauliZ, Identity, Hadamard, S, expval
+from pennylane import math
+import numpy as np
 
 
 class WireCut(Operation):
@@ -47,7 +49,7 @@ class PrepareNode(Operation):
 
 @batch_transform
 def cut_circuit(
-    tape: QuantumTape, method: Optional[Union[str, Callable]] = None, **kwargs
+        tape: QuantumTape, method: Optional[Union[str, Callable]] = None, **kwargs
 ) -> Tuple[Tuple[QuantumTape], Callable]:
     """Main transform"""
     g = tape_to_graph(tape)
@@ -59,12 +61,28 @@ def cut_circuit(
     fragments, communication_graph = fragment_graph(g)
     fragment_tapes = [graph_to_tape(f) for f in fragments]
 
-    configurations = [expand_fragment_tapes(t) for t in fragment_tapes]
+    expanded = [expand_fragment_tapes(t) for t in fragment_tapes]
+
+    configurations = []
+    prepare_nodes = []
+    measure_nodes = []
+
+    for tapes, p, m in expanded:
+        configurations.append(tapes)
+        prepare_nodes.append(p)
+        measure_nodes.append(m)
+
     shapes = [len(c) for c in configurations]
 
     tapes = tuple(tape for c in configurations for tape in c)
 
-    return tapes, partial(contract, shapes=shapes, communication_graph=communication_graph)
+    return tapes, partial(
+        contract,
+        shapes=shapes,
+        communication_graph=communication_graph,
+        prepare_nodes=prepare_nodes,
+        measure_nodes=measure_nodes,
+    )
 
 
 def tape_to_graph(tape: QuantumTape) -> MultiDiGraph:
@@ -155,11 +173,11 @@ def find_and_place_cuts(graph: MultiDiGraph, method: Union[str, Callable], **kwa
 
 
 def example_method(
-    graph: MultiDiGraph,
-    max_wires: Optional[int],
-    max_gates: Optional[int],
-    num_partitions: Optional[int],
-    **kwargs
+        graph: MultiDiGraph,
+        max_wires: Optional[int],
+        max_gates: Optional[int],
+        num_partitions: Optional[int],
+        **kwargs
 ) -> Tuple[Tuple[Tuple[Operator, Operator, Any]], Dict[str, Any]]:
     """Example method passed to ``find_cuts``. Returns a tuple of wire cuts of the form
     ``Tuple[Tuple[Operator, Operator, Any]]`` specifying the wire to cut between two operators. An
@@ -223,7 +241,6 @@ def graph_to_tape(graph: MultiDiGraph) -> QuantumTape:
                 wires += new_wire
                 wire_map[measured_wire] = new_wire
 
-<<<<<<< HEAD
     return tape
 
 
@@ -253,16 +270,11 @@ def _prep_iplus_state(wire):
 
 
 PREPARE_SETTINGS = [_prep_zero_state, _prep_one_state, _prep_plus_state, _prep_iplus_state]
-MEASURE_SETTINGS = [
-    lambda wire: expval(PauliX(wires=wire)),
-    lambda wire: expval(PauliY(wires=wire)),
-    lambda wire: expval(PauliZ(wires=wire)),
-    lambda wire: expval(Identity(wires=wire)),
-]
+MEASURE_SETTINGS = [Identity, PauliX, PauliY, PauliZ]
 
 
 def expand_fragment_tapes(
-    tape: QuantumTape,
+        tape: QuantumTape,
 ) -> Tuple[List[QuantumTape], List[PrepareNode], List[MeasureNode]]:
     """Expands a fragment tape into a tape for each configuration."""
     prepare_nodes = [o for o in tape.operations if isinstance(o, PrepareNode)]
@@ -277,7 +289,7 @@ def expand_fragment_tapes(
         prepare_mapping = {n: PREPARE_SETTINGS[s] for n, s in zip(prepare_nodes, prepare_settings)}
         measure_mapping = {n: MEASURE_SETTINGS[s] for n, s in zip(measure_nodes, measure_settings)}
 
-        m = []
+        meas = []
 
         with QuantumTape() as tape_:
             for op in tape.operations:
@@ -285,22 +297,57 @@ def expand_fragment_tapes(
                     w = op.wires[0]
                     prepare_mapping[op](w)
                 elif isinstance(op, MeasureNode):
-                    m.append(op)
+                    meas.append(op)
                 else:
                     apply(op)
 
-            for op in m:
-                w = op.wires[0]
-                measure_mapping[op](w)
+            with stop_recording():
+                op_tensor = Tensor(*[measure_mapping[op](op.wires[0]) for op in meas])
 
             for m in tape.measurements:
-                apply(m)
+                if m.return_type is not Expectation:
+                    raise ValueError("Only expectation values supported for now")
+                with stop_recording():
+                    full_tensor = op_tensor @ m.obs
+                expval(full_tensor)
 
         tapes.append(tape_)
 
     return tapes, prepare_nodes, measure_nodes
 
 
-def contract(results: Sequence, shapes: Sequence[int], communication_graph: MultiDiGraph):
+CHANGE_OF_BASIS_MAT = np.array([
+    [1,  1,  1,  1],
+    [0,  0,  1,  0],
+    [0,  0,  0, -1],
+    [1, -1,  0,  0],
+]
+) / 2
+CHANGE_OF_BASIS_MAT = np.eye(4)
+
+def contract(
+        results: Sequence,
+        shapes: Sequence[int],
+        communication_graph: MultiDiGraph,
+        prepare_nodes: Sequence[PrepareNode],
+        measure_nodes: Sequence[MeasureNode],
+):
     """Returns the result of contracting the tensor network."""
-    ...
+    if len(results[0]) > 1:
+        raise ValueError("Only supporting returning a single expectation for now")
+
+    ctr = 0
+    tensors = []
+    for s, p, m in zip(shapes, prepare_nodes, measure_nodes):
+        target_shape = (4,) * (len(p) + len(m))
+        fragment_results = math.toarray(results[ctr:s + ctr]).reshape(target_shape)
+
+        for i in range(len(p)):
+            fragment_results = math.tensordot(CHANGE_OF_BASIS_MAT, fragment_results, axes=[1, i])
+
+        print(fragment_results)
+        tensors.append(fragment_results)
+        ctr += s
+
+    # print(tensors)
+    # print(len(tensors))
