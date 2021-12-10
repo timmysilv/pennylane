@@ -223,6 +223,7 @@ def graph_to_tape(graph: MultiDiGraph) -> QuantumTape:
                 wires += new_wire
                 wire_map[measured_wire] = new_wire
 
+<<<<<<< HEAD
     return tape
 
 
@@ -260,7 +261,9 @@ MEASURE_SETTINGS = [
 ]
 
 
-def expand_fragment_tapes(tape: QuantumTape) -> Tuple[List[QuantumTape], List[PrepareNode], List[MeasureNode]]:
+def expand_fragment_tapes(
+    tape: QuantumTape,
+) -> Tuple[List[QuantumTape], List[PrepareNode], List[MeasureNode]]:
     """Expands a fragment tape into a tape for each configuration."""
     prepare_nodes = [o for o in tape.operations if isinstance(o, PrepareNode)]
     measure_nodes = [o for o in tape.operations if isinstance(o, MeasureNode)]
