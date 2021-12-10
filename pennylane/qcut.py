@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from functools import partial
-from typing import Any, Callable, Dict, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Sequence, Tuple, Union, List
 
 from networkx import MultiDiGraph
 
@@ -118,7 +118,9 @@ def graph_to_tape(graph: MultiDiGraph) -> QuantumTape:
     ...
 
 
-def expand_fragment_tapes(tape: QuantumTape) -> Tuple[QuantumTape]:
+def expand_fragment_tapes(
+    tape: QuantumTape,
+) -> Tuple[List[QuantumTape], List[PrepareNode], List[MeasureNode]]:
     """Expands a fragment tape into a tape for each configuration."""
     ...
 
