@@ -15,6 +15,7 @@
 import pennylane as qml
 from pennylane import qcut
 import networkx as nx
+from pennylane.wires import Wires
 
 
 def compare_operations(op1, op2):
@@ -212,4 +213,37 @@ class TestGraphToTape:
         qcut.remove_wire_cut_nodes(g)
         subgraphs, communication_graph = qcut.fragment_graph(g)
 
-        qcut.graph_to_tape(subgraphs[0])
+        tape_0 = qcut.graph_to_tape(subgraphs[0])
+        tape_1 = qcut.graph_to_tape(subgraphs[1])
+
+        with qml.tape.QuantumTape() as expected_tape_0:
+            qml.CNOT(wires=[0, 1])
+            qml.Hadamard(wires=0)
+
+            qcut.MeasureNode(wires=1)
+            qcut.PrepareNode(wires=2)
+
+            qml.CNOT(wires=[0, 2])
+
+            qml.expval(qml.PauliZ(0))
+
+        with qml.tape.QuantumTape() as expected_tape_1:
+            qml.S(wires=2)
+
+            qcut.PrepareNode(wires=1)
+            qml.CNOT(wires=[1, 2])
+            qcut.MeasureNode(wires=1)
+
+            qml.PauliY(2)
+
+            qml.expval(qml.PauliZ(2))
+
+        compare_ops_list(tape_0.operations + tape_0.measurements, expected_tape_0.operations + tape_0.measurements)
+        compare_ops_list(tape_1.operations + tape_1.measurements, expected_tape_1.operations + tape_1.measurements)
+
+
+def test_find_new_wire():
+    """Test for the _find_new_wire function"""
+    w = Wires([0, -1, "d", 33, 2.3, "Alice", 1])
+
+    assert qcut._find_new_wire(w) == 2

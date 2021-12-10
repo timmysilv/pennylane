@@ -208,16 +208,21 @@ def graph_to_tape(graph: MultiDiGraph) -> QuantumTape:
     wires = Wires.all_wires([n.wires for n in graph.nodes])
 
     ordered_ops = sorted((order, op) for op, order in graph.nodes(data="order"))
+    wire_map = {w: w for w in wires}
 
     with QuantumTape() as tape:
         for _, op in ordered_ops:
+            new_wires = [wire_map[w] for w in op.wires]
+            op._wires = Wires(new_wires)  # TODO: find a better way to update operation wires
             apply(op)
 
+            if isinstance(op, MeasureNode):
+                measured_wire = op.wires[0]
+                new_wire = _find_new_wire(wires)
+                wires += new_wire
+                wire_map[measured_wire] = new_wire
+
     return tape
-
-
-        
-
 
 
 def _find_new_wire(wires: Wires) -> int:
@@ -226,7 +231,6 @@ def _find_new_wire(wires: Wires) -> int:
     while ctr in wires:
         ctr += 1
     return ctr
-
 
 
 def expand_fragment_tapes(tape: QuantumTape) -> Tuple[QuantumTape]:
