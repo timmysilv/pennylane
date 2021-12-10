@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from functools import partial
+from itertools import product
 from typing import Any, Callable, Dict, Optional, Sequence, Tuple, Union
 
 from networkx import MultiDiGraph, weakly_connected_components
@@ -21,7 +22,7 @@ from pennylane.tape import QuantumTape
 from pennylane.transforms import batch_transform
 from pennylane.measure import MeasurementProcess
 from pennylane.wires import Wires
-from pennylane import apply
+from pennylane import apply, PauliX, PauliY, PauliZ, Identity, Hadamard, S, expval
 
 
 class WireCut(Operation):
@@ -233,9 +234,43 @@ def _find_new_wire(wires: Wires) -> int:
     return ctr
 
 
-def expand_fragment_tapes(tape: QuantumTape) -> Tuple[QuantumTape]:
+def _prep_zero_state(wire):
+    Identity(wire)
+
+
+def _prep_one_state(wire):
+    PauliX(wire)
+
+
+def _prep_plus_state(wire):
+    Hadamard(wire)
+
+
+def _prep_iplus_state(wire):
+    Hadamard(wire)
+    S(wires=wire)
+
+
+PREPARE_SETTINGS = [_prep_zero_state, _prep_one_state, _prep_plus_state, _prep_iplus_state]
+OBSERVABLE_BASIS = [PauliX, PauliY, PauliZ, Identity]
+MEASURE_SETTINGS = [lambda wire: expval(o(wires=wire)) for o in OBSERVABLE_BASIS]
+
+
+def expand_fragment_tapes(tape: QuantumTape, prepare_settings: Optional[Sequence[Callable]] = PREPARE_SETTINGS, measure_settings: Optional[Sequence[Callable]] = MEASURE_SETTINGS) -> Tuple[Tuple[QuantumTape], Tuple[PrepareNode], Tuple[MeasureNode]]:
     """Expands a fragment tape into a tape for each configuration."""
-    ...
+    prepare_nodes = [o for o in tape.operations if isinstance(o, PrepareNode)]
+    measure_nodes = [o for o in tape.operations if isinstance(o, MeasureNode)]
+
+    prepare_settings_prod = [prepare_settings] * len(prepare_nodes)
+    measure_settings_prod = [measure_settings] * len(measure_nodes)
+    p = product(*(prepare_settings_prod + measure_settings_prod))
+    print(list(p))
+
+    tapes = []
+
+    # for
+
+    return prepare_nodes, measure_nodes
 
 
 def contract(results: Sequence, shapes: Sequence[int], communication_graph: MultiDiGraph):

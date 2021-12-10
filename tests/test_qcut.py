@@ -247,3 +247,31 @@ def test_find_new_wire():
     w = Wires([0, -1, "d", 33, 2.3, "Alice", 1])
 
     assert qcut._find_new_wire(w) == 2
+
+
+class TestExpandFragmentTapes:
+    """Tests for the expand_fragment_tapes function"""
+    def test_standard(self):
+        """Test on a typical circuit cutting configuration"""
+        with qml.tape.QuantumTape() as tape:
+            qml.CNOT(wires=[0, 1])
+            qml.Hadamard(wires=0)
+            qml.S(wires=2)
+
+            qcut.WireCut(wires=1)
+            qml.CNOT(wires=[1, 2])
+            qcut.WireCut(wires=1)
+
+            qml.CNOT(wires=[0, 1])
+            qml.PauliY(2)
+
+            qml.expval(qml.PauliZ(0) @ qml.PauliZ(2))
+
+        g = qcut.tape_to_graph(tape)
+        qcut.remove_wire_cut_nodes(g)
+        subgraphs, communication_graph = qcut.fragment_graph(g)
+
+        tape_0 = qcut.graph_to_tape(subgraphs[0])
+        tape_1 = qcut.graph_to_tape(subgraphs[1])
+
+        qcut.expand_fragment_tapes(tape_1)
