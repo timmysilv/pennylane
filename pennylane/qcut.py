@@ -13,7 +13,7 @@
 # limitations under the License.
 from functools import partial
 from itertools import product
-from typing import Any, Callable, Dict, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Sequence, Tuple, Union, List
 
 from networkx import MultiDiGraph, weakly_connected_components
 
@@ -252,25 +252,50 @@ def _prep_iplus_state(wire):
 
 
 PREPARE_SETTINGS = [_prep_zero_state, _prep_one_state, _prep_plus_state, _prep_iplus_state]
-OBSERVABLE_BASIS = [PauliX, PauliY, PauliZ, Identity]
-MEASURE_SETTINGS = [lambda wire: expval(o(wires=wire)) for o in OBSERVABLE_BASIS]
+MEASURE_SETTINGS = [
+    lambda wire: expval(PauliX(wires=wire)),
+    lambda wire: expval(PauliY(wires=wire)),
+    lambda wire: expval(PauliZ(wires=wire)),
+    lambda wire: expval(Identity(wires=wire)),
+]
 
 
-def expand_fragment_tapes(tape: QuantumTape, prepare_settings: Optional[Sequence[Callable]] = PREPARE_SETTINGS, measure_settings: Optional[Sequence[Callable]] = MEASURE_SETTINGS) -> Tuple[Tuple[QuantumTape], Tuple[PrepareNode], Tuple[MeasureNode]]:
+def expand_fragment_tapes(tape: QuantumTape) -> Tuple[List[QuantumTape], List[PrepareNode], List[MeasureNode]]:
     """Expands a fragment tape into a tape for each configuration."""
     prepare_nodes = [o for o in tape.operations if isinstance(o, PrepareNode)]
     measure_nodes = [o for o in tape.operations if isinstance(o, MeasureNode)]
 
-    prepare_settings_prod = [prepare_settings] * len(prepare_nodes)
-    measure_settings_prod = [measure_settings] * len(measure_nodes)
-    p = product(*(prepare_settings_prod + measure_settings_prod))
-    print(list(p))
+    prepare_combinations = product(range(len(PREPARE_SETTINGS)), repeat=len(prepare_nodes))
+    measure_combinations = product(range(len(MEASURE_SETTINGS)), repeat=len(measure_nodes))
 
     tapes = []
 
-    # for
+    for prepare_settings, measure_settings in product(prepare_combinations, measure_combinations):
+        prepare_mapping = {n: PREPARE_SETTINGS[s] for n, s in zip(prepare_nodes, prepare_settings)}
+        measure_mapping = {n: MEASURE_SETTINGS[s] for n, s in zip(measure_nodes, measure_settings)}
 
-    return prepare_nodes, measure_nodes
+        m = []
+
+        with QuantumTape() as tape_:
+            for op in tape.operations:
+                if isinstance(op, PrepareNode):
+                    w = op.wires[0]
+                    prepare_mapping[op](w)
+                elif isinstance(op, MeasureNode):
+                    m.append(op)
+                else:
+                    apply(op)
+
+            for op in m:
+                w = op.wires[0]
+                measure_mapping[op](w)
+
+            for m in tape.measurements:
+                apply(m)
+
+        tapes.append(tape_)
+
+    return tapes, prepare_nodes, measure_nodes
 
 
 def contract(results: Sequence, shapes: Sequence[int], communication_graph: MultiDiGraph):

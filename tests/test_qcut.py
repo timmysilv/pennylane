@@ -274,4 +274,6 @@ class TestExpandFragmentTapes:
         tape_0 = qcut.graph_to_tape(subgraphs[0])
         tape_1 = qcut.graph_to_tape(subgraphs[1])
 
-        qcut.expand_fragment_tapes(tape_1)
+        tapes_0, prep_nodes_0, meas_nodes_0 = qcut.expand_fragment_tapes(tape_0)
+        tapes_1, prep_nodes_1, meas_nodes_1 = qcut.expand_fragment_tapes(tape_1)
+        # TODO
