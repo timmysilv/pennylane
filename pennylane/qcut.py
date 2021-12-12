@@ -414,6 +414,3 @@ def contract(
     result = _contract_tensors(tensors, communication_graph, prepare_nodes, measure_nodes)
 
     return result
-
-    # print(tensors)
-    # print(len(tensors))
