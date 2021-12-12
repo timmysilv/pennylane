@@ -312,7 +312,7 @@ def expand_fragment_tapes(
                     if m.return_type is not Expectation:
                         raise ValueError("Only expectation values supported for now")
                     with stop_recording():
-                        full_tensor = op_tensor @ m.obs
+                        full_tensor = m.obs @ op_tensor
                     expval(full_tensor)
             else:
                 expval(op_tensor)
