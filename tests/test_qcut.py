@@ -16,6 +16,7 @@ import pennylane as qml
 from pennylane import qcut
 import networkx as nx
 from pennylane.wires import Wires
+import numpy as np
 
 
 def compare_operations(op1, op2):
@@ -283,29 +284,61 @@ class TestExpandFragmentTapes:
 class TestCutCircuit:
     """Tests for the cut_circuit transform"""
 
-    def test_standard(self):
+    # def test_standard(self):
+    #     """Test on a typical circuit cutting configuration"""
+    #     dev = qml.device("default.qubit", wires=3)
+    #
+    #     with qml.tape.QuantumTape() as tape:
+    #         qml.RX(0.4, wires=0)
+    #         qml.RY(0.8, wires=1)
+    #         qml.CNOT(wires=[0, 1])
+    #         qml.Hadamard(wires=0)
+    #         qml.S(wires=2)
+    #
+    #         qcut.WireCut(wires=1)
+    #         qml.CNOT(wires=[1, 2])
+    #         qcut.WireCut(wires=1)
+    #
+    #         qml.CNOT(wires=[0, 1])
+    #         qml.PauliY(2)
+    #
+    #         qml.expval(qml.PauliZ(0) @ qml.PauliZ(2))
+    #
+    #     tapes, postproc = qcut.cut_circuit(tape)
+    #
+    #     results = qml.execute(tapes, dev, gradient_fn=None)
+    #
+    #     out = postproc(results)
+
+    def test_standard(self, mocker):
         """Test on a typical circuit cutting configuration"""
-        dev = qml.device("default.qubit", wires=3)
+        dev = qml.device("default.qubit", wires=1)
 
         with qml.tape.QuantumTape() as tape:
             qml.RX(0.4, wires=0)
-            qml.RY(0.8, wires=1)
-            qml.CNOT(wires=[0, 1])
-            qml.Hadamard(wires=0)
-            qml.S(wires=2)
+            qcut.WireCut(wires=0)
+            qml.RY(0.3, wires=0)
 
-            qcut.WireCut(wires=1)
-            qml.CNOT(wires=[1, 2])
-            qcut.WireCut(wires=1)
+            qml.expval(qml.PauliZ(0))
 
-            qml.CNOT(wires=[0, 1])
-            qml.PauliY(2)
-
-            qml.expval(qml.PauliZ(0) @ qml.PauliZ(2))
+        spy = mocker.spy(qcut, "_contract_tensors")
 
         tapes, postproc = qcut.cut_circuit(tape)
 
         results = qml.execute(tapes, dev, gradient_fn=None)
 
         out = postproc(results)
-        # print(out)
+
+        t0, t1 = spy.call_args[0][0]
+
+        t0_expected = np.array([0.70710678,  0, -0.27536035,  0.65128847])
+        assert np.allclose(t0_expected, t0)
+
+        t1_expected = np.array([ 0        , -0.41792868,  0        ,  1.35104982])
+        assert np.allclose(t1_expected, t1)
+        assert np.allclose(t1_expected @ t0_expected, 0.8799231762812566)
+
+        tape = tape.expand()
+        dev.reset()
+        expected_res = dev.execute(tape)
+        assert np.allclose(out, expected_res)

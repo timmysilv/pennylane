@@ -99,6 +99,8 @@ def tape_to_graph(tape: QuantumTape) -> MultiDiGraph:
                 graph.add_edge(parent_op, op, wire=wire)
             wire_latest_node[wire] = op
 
+    order += 1
+
     for m in tape.measurements:
         obs = getattr(m, "obs", None)
         if obs is not None and isinstance(obs, Tensor):
@@ -277,6 +279,7 @@ def expand_fragment_tapes(
         tape: QuantumTape,
 ) -> Tuple[List[QuantumTape], List[PrepareNode], List[MeasureNode]]:
     """Expands a fragment tape into a tape for each configuration."""
+
     prepare_nodes = [o for o in tape.operations if isinstance(o, PrepareNode)]
     measure_nodes = [o for o in tape.operations if isinstance(o, MeasureNode)]
 
@@ -304,26 +307,97 @@ def expand_fragment_tapes(
             with stop_recording():
                 op_tensor = Tensor(*[measure_mapping[op](op.wires[0]) for op in meas])
 
-            for m in tape.measurements:
-                if m.return_type is not Expectation:
-                    raise ValueError("Only expectation values supported for now")
-                with stop_recording():
-                    full_tensor = op_tensor @ m.obs
-                expval(full_tensor)
+            if len(tape.measurements) > 0:
+                for m in tape.measurements:
+                    if m.return_type is not Expectation:
+                        raise ValueError("Only expectation values supported for now")
+                    with stop_recording():
+                        full_tensor = op_tensor @ m.obs
+                    expval(full_tensor)
+            else:
+                expval(op_tensor)
 
         tapes.append(tape_)
 
     return tapes, prepare_nodes, measure_nodes
 
 
-CHANGE_OF_BASIS_MAT = np.array([
-    [1,  1,  1,  1],
-    [0,  0,  1,  0],
-    [0,  0,  0, -1],
-    [1, -1,  0,  0],
-]
-) / 2
-CHANGE_OF_BASIS_MAT = np.eye(4)
+CHANGE_OF_BASIS_MAT = np.array([[1,  1,  0,  0],
+       [-1, -1,  2,  0],
+       [1,  1, 0, -2],
+       [1, -1, 0, 0]])
+
+
+def _get_tensors(
+        results: Sequence,
+        shapes: Sequence[int],
+        prepare_nodes: Sequence[PrepareNode],
+        measure_nodes: Sequence[MeasureNode],
+) -> List:
+
+    ctr = 0
+    tensors = []
+
+    for s, p, m in zip(shapes, prepare_nodes, measure_nodes):
+        n_prep = len(p)
+        n_meas = len(m)
+        target_shape = (4,) * (n_prep + n_meas)
+
+        fragment_results = math.toarray(results[ctr:s + ctr]).reshape(target_shape)
+        fragment_results *= np.power(2, - (n_meas + n_prep) / 2)
+        ctr += s
+
+        for i in range(n_prep):
+            fragment_results = math.tensordot(CHANGE_OF_BASIS_MAT, fragment_results, axes=[1, i])
+
+        tensors.append(fragment_results)
+
+    return tensors
+
+
+def _contract_tensors(
+    tensors: Sequence,
+    communication_graph: MultiDiGraph,
+    prepare_nodes: Sequence[PrepareNode],
+    measure_nodes: Sequence[MeasureNode],
+):
+    import opt_einsum as oe
+
+    ctr = 0
+    tensor_indxs = [""] * len(communication_graph.nodes)
+
+    meas_map = {}
+
+    for i, (node, prep) in enumerate(zip(communication_graph.nodes, prepare_nodes)):
+        predecessors = communication_graph.pred[node]
+
+
+        for pred_node, pred_edges in predecessors.items():
+            for pred_edge in pred_edges.values():
+                meas_op, prep_op = pred_edge["pair"]
+                for p in prep:
+                    if p is prep_op:
+                        symb = oe.get_symbol(ctr)
+                        ctr += 1
+                        tensor_indxs[i] += symb
+                        meas_map[meas_op] = symb
+
+    for i, (node, meas) in enumerate(zip(communication_graph.nodes, measure_nodes)):
+        successors = communication_graph.succ[node]
+
+        for succ_node, succ_edges in successors.items():
+            for succ_edge in succ_edges.values():
+                meas_op, prep_op = succ_edge["pair"]
+
+                for m in meas:
+                    if m is meas_op:
+                        symb = meas_map[meas_op]
+                        tensor_indxs[i] += symb
+
+    eqn = ",".join(tensor_indxs)
+
+    return oe.contract(eqn, *tensors)
+
 
 def contract(
         results: Sequence,
@@ -336,18 +410,10 @@ def contract(
     if len(results[0]) > 1:
         raise ValueError("Only supporting returning a single expectation for now")
 
-    ctr = 0
-    tensors = []
-    for s, p, m in zip(shapes, prepare_nodes, measure_nodes):
-        target_shape = (4,) * (len(p) + len(m))
-        fragment_results = math.toarray(results[ctr:s + ctr]).reshape(target_shape)
+    tensors = _get_tensors(results, shapes, prepare_nodes, measure_nodes)
+    result = _contract_tensors(tensors, communication_graph, prepare_nodes, measure_nodes)
 
-        for i in range(len(p)):
-            fragment_results = math.tensordot(CHANGE_OF_BASIS_MAT, fragment_results, axes=[1, i])
-
-        print(fragment_results)
-        tensors.append(fragment_results)
-        ctr += s
+    return result
 
     # print(tensors)
     # print(len(tensors))
