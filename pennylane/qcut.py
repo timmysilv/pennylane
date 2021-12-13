@@ -314,8 +314,11 @@ def expand_fragment_tapes(
                     with stop_recording():
                         full_tensor = m.obs @ op_tensor
                     expval(full_tensor)
-            else:
+                    # print(full_tensor)
+            elif len(op_tensor.name) > 0:
                 expval(op_tensor)
+            else:
+                expval(Identity(tape.wires[0]))
 
         tapes.append(tape_)
 
