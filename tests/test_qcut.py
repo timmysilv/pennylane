@@ -66,10 +66,14 @@ def test_tape_to_graph():
     assert isinstance(g, nx.MultiDiGraph)
 
     expected_nodes = [
-        (qml.BasisState([0, 1], wires=[0, 1]), {'order': 0}), (qml.RX(0.4, wires=[0]), {'order': 1}),
-        (qml.CNOT(wires=[0, 1]), {'order': 2}), (qml.Hadamard(wires=[1]), {'order': 3}),
-        (qcut.WireCut(wires=[0]), {'order': 4}), (qml.expval(qml.PauliZ(wires=[0])), {'order': 4}),
-        (qml.expval(qml.PauliX(wires=[1])), {'order': 5}), (qml.probs(wires=[0, 1]), {'order': 6})
+        (qml.BasisState([0, 1], wires=[0, 1]), {"order": 0}),
+        (qml.RX(0.4, wires=[0]), {"order": 1}),
+        (qml.CNOT(wires=[0, 1]), {"order": 2}),
+        (qml.Hadamard(wires=[1]), {"order": 3}),
+        (qcut.WireCut(wires=[0]), {"order": 4}),
+        (qml.expval(qml.PauliZ(wires=[0])), {"order": 4}),
+        (qml.expval(qml.PauliX(wires=[1])), {"order": 5}),
+        (qml.probs(wires=[0, 1]), {"order": 6}),
     ]
 
     for n1, n2 in zip(expected_nodes, g.nodes(data=True)):
@@ -132,9 +136,9 @@ class TestRemoveWireCutNode:
             (qml.RX(0.4, wires=1), qcut.MeasureNode(wires=1), {"wire": 1}),
             (qml.RY(0.5, wires=0), qml.CRX(0.1, wires=[1, 0]), {"wire": 0}),
             (qcut.MeasureNode(wires=0), qcut.PrepareNode(wires=0), {"wire": 0}),
-            (qcut.PrepareNode(wires=[0]), qml.RY(0.5, wires=[0]), {'wire': 0}),
-            (qcut.MeasureNode(wires=[1]), qcut.PrepareNode(wires=[1]), {'wire': 1}),
-            (qcut.PrepareNode(wires=[1]), qml.CRX(0.1, wires=[1, 0]), {'wire': 1}),
+            (qcut.PrepareNode(wires=[0]), qml.RY(0.5, wires=[0]), {"wire": 0}),
+            (qcut.MeasureNode(wires=[1]), qcut.PrepareNode(wires=[1]), {"wire": 1}),
+            (qcut.PrepareNode(wires=[1]), qml.CRX(0.1, wires=[1, 0]), {"wire": 1}),
         ]
 
         edges = g.edges(data=True)
@@ -188,7 +192,9 @@ class TestFragmentGraph:
         c_edge = list(c_edges)[0]
 
         assert c_edge[:2] == (0, 1)
-        compare_ops_list(c_edge[-1]["pair"],  (qcut.MeasureNode(wires=[0]), qcut.PrepareNode(wires=[0])))
+        compare_ops_list(
+            c_edge[-1]["pair"], (qcut.MeasureNode(wires=[0]), qcut.PrepareNode(wires=[0]))
+        )
 
 
 class TestGraphToTape:
@@ -239,8 +245,14 @@ class TestGraphToTape:
 
             qml.expval(qml.PauliZ(2))
 
-        compare_ops_list(tape_0.operations + tape_0.measurements, expected_tape_0.operations + tape_0.measurements)
-        compare_ops_list(tape_1.operations + tape_1.measurements, expected_tape_1.operations + tape_1.measurements)
+        compare_ops_list(
+            tape_0.operations + tape_0.measurements,
+            expected_tape_0.operations + tape_0.measurements,
+        )
+        compare_ops_list(
+            tape_1.operations + tape_1.measurements,
+            expected_tape_1.operations + tape_1.measurements,
+        )
 
 
 def test_find_new_wire():
@@ -284,64 +296,38 @@ class TestExpandFragmentTapes:
 class TestCutCircuit:
     """Tests for the cut_circuit transform"""
 
-    # def test_standard(self):
-    #     """Test on a typical circuit cutting configuration"""
-    #     dev = qml.device("default.qubit", wires=3)
-    #
-    #     with qml.tape.QuantumTape() as tape:
-    #         qml.RX(0.4, wires=0)
-    #         qml.RY(0.8, wires=1)
-    #         qml.CNOT(wires=[0, 1])
-    #         qml.Hadamard(wires=0)
-    #         qml.S(wires=2)
-    #
-    #         qcut.WireCut(wires=1)
-    #         qml.CNOT(wires=[1, 2])
-    #         qcut.WireCut(wires=1)
-    #
-    #         qml.CNOT(wires=[0, 1])
-    #         qml.PauliY(2)
-    #
-    #         qml.expval(qml.PauliZ(0) @ qml.PauliZ(2))
-    #
-    #     tapes, postproc = qcut.cut_circuit(tape)
-    #
-    #     results = qml.execute(tapes, dev, gradient_fn=None)
-    #
-    #     out = postproc(results)
+    def test_standard(self, mocker):
+        """Test on a typical circuit cutting configuration"""
+        dev = qml.device("default.qubit", wires=1)
 
-    # def test_standard(self, mocker):
-    #     """Test on a typical circuit cutting configuration"""
-    #     dev = qml.device("default.qubit", wires=1)
-    #
-    #     with qml.tape.QuantumTape() as tape:
-    #         qml.RX(0.4, wires=0)
-    #         qcut.WireCut(wires=0)
-    #         qml.RY(0.3, wires=0)
-    #
-    #         qml.expval(qml.PauliZ(0))
-    #
-    #     spy = mocker.spy(qcut, "_contract_tensors")
-    #
-    #     tapes, postproc = qcut.cut_circuit(tape)
-    #
-    #     results = qml.execute(tapes, dev, gradient_fn=None)
-    #
-    #     out = postproc(results)
-    #
-    #     t0, t1 = spy.call_args[0][0]
-    #
-    #     t0_expected = np.array([0.70710678,  0, -0.27536035,  0.65128847])
-    #     assert np.allclose(t0_expected, t0)
-    #
-    #     t1_expected = np.array([ 0        , -0.41792868,  0        ,  1.35104982])
-    #     assert np.allclose(t1_expected, t1)
-    #     assert np.allclose(t1_expected @ t0_expected, 0.8799231762812566)
-    #
-    #     tape = tape.expand()
-    #     dev.reset()
-    #     expected_res = dev.execute(tape)
-    #     assert np.allclose(out, expected_res)
+        with qml.tape.QuantumTape() as tape:
+            qml.RX(0.4, wires=0)
+            qcut.WireCut(wires=0)
+            qml.RY(0.3, wires=0)
+
+            qml.expval(qml.PauliZ(0))
+
+        spy = mocker.spy(qcut, "_contract_tensors")
+
+        tapes, postproc = qcut.cut_circuit(tape)
+
+        results = qml.execute(tapes, dev, gradient_fn=None)
+
+        out = postproc(results)
+
+        t0, t1 = spy.call_args[0][0]
+
+        t0_expected = np.array([0.70710678, 0, -0.27536035, 0.65128847])
+        assert np.allclose(t0_expected, t0)
+
+        t1_expected = np.array([0, -0.41792868, 0, 1.35104982])
+        assert np.allclose(t1_expected, t1)
+        assert np.allclose(t1_expected @ t0_expected, 0.8799231762812566)
+
+        tape = tape.expand()
+        dev.reset()
+        expected_res = dev.execute(tape)
+        assert np.allclose(out, expected_res)
 
     def test_advanced(self, mocker):
         """Test on a more advanced circuit cutting configuration"""
@@ -373,20 +359,15 @@ class TestCutCircuit:
 
         t0, t1 = spy.call_args[0][0]
 
-        t0_expected = np.array([[ 0    ,  0    , -2.71310372e-01,  0    ],
-       [ 0    ,  0    , 0    ,  0    ],
-       [ 0    ,  0    ,  0    ,  0    ],
-       [ 0    ,  0    ,  0    ,  0    ]])
+        t0_expected = np.array(
+            [[0, 0, -2.71310372e-01, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
+        )
         assert np.allclose(t0_expected, t0)
 
-        t1_expected = np.array([[ 0,  0,  0, -1.],
-       [ 0,  0,  0,  0],
-       [ 0,  0,  0,  0],
-       [ 1.,  0,  0,  0]])
+        t1_expected = np.array([[0, 0, 0, -1.0], [0, 0, 0, 0], [0, 0, 0, 0], [1.0, 0, 0, 0]])
 
         assert np.allclose(t1, t1_expected)
 
-        tape = tape.expand()
         dev.reset()
         expected_res = 0
         assert np.allclose(out, expected_res)

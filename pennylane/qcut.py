@@ -49,7 +49,7 @@ class PrepareNode(Operation):
 
 @batch_transform
 def cut_circuit(
-        tape: QuantumTape, method: Optional[Union[str, Callable]] = None, **kwargs
+    tape: QuantumTape, method: Optional[Union[str, Callable]] = None, **kwargs
 ) -> Tuple[Tuple[QuantumTape], Callable]:
     """Main transform"""
     g = tape_to_graph(tape)
@@ -175,11 +175,11 @@ def find_and_place_cuts(graph: MultiDiGraph, method: Union[str, Callable], **kwa
 
 
 def example_method(
-        graph: MultiDiGraph,
-        max_wires: Optional[int],
-        max_gates: Optional[int],
-        num_partitions: Optional[int],
-        **kwargs
+    graph: MultiDiGraph,
+    max_wires: Optional[int],
+    max_gates: Optional[int],
+    num_partitions: Optional[int],
+    **kwargs
 ) -> Tuple[Tuple[Tuple[Operator, Operator, Any]], Dict[str, Any]]:
     """Example method passed to ``find_cuts``. Returns a tuple of wire cuts of the form
     ``Tuple[Tuple[Operator, Operator, Any]]`` specifying the wire to cut between two operators. An
@@ -276,7 +276,7 @@ MEASURE_SETTINGS = [Identity, PauliX, PauliY, PauliZ]
 
 
 def expand_fragment_tapes(
-        tape: QuantumTape,
+    tape: QuantumTape,
 ) -> Tuple[List[QuantumTape], List[PrepareNode], List[MeasureNode]]:
     """Expands a fragment tape into a tape for each configuration."""
 
@@ -322,17 +322,14 @@ def expand_fragment_tapes(
     return tapes, prepare_nodes, measure_nodes
 
 
-CHANGE_OF_BASIS_MAT = np.array([[1,  1,  0,  0],
-       [-1, -1,  2,  0],
-       [1,  1, 0, -2],
-       [1, -1, 0, 0]])
+CHANGE_OF_BASIS_MAT = np.array([[1, 1, 0, 0], [-1, -1, 2, 0], [1, 1, 0, -2], [1, -1, 0, 0]])
 
 
 def _get_tensors(
-        results: Sequence,
-        shapes: Sequence[int],
-        prepare_nodes: Sequence[PrepareNode],
-        measure_nodes: Sequence[MeasureNode],
+    results: Sequence,
+    shapes: Sequence[int],
+    prepare_nodes: Sequence[PrepareNode],
+    measure_nodes: Sequence[MeasureNode],
 ) -> List:
 
     ctr = 0
@@ -343,8 +340,8 @@ def _get_tensors(
         n_meas = len(m)
         target_shape = (4,) * (n_prep + n_meas)
 
-        fragment_results = math.toarray(results[ctr:s + ctr]).reshape(target_shape)
-        fragment_results *= np.power(2, - (n_meas + n_prep) / 2)
+        fragment_results = math.toarray(results[ctr : s + ctr]).reshape(target_shape)
+        fragment_results *= np.power(2, -(n_meas + n_prep) / 2)
         ctr += s
 
         for i in range(n_prep):
@@ -370,7 +367,6 @@ def _contract_tensors(
 
     for i, (node, prep) in enumerate(zip(communication_graph.nodes, prepare_nodes)):
         predecessors = communication_graph.pred[node]
-
 
         for pred_node, pred_edges in predecessors.items():
             for pred_edge in pred_edges.values():
@@ -400,11 +396,11 @@ def _contract_tensors(
 
 
 def contract(
-        results: Sequence,
-        shapes: Sequence[int],
-        communication_graph: MultiDiGraph,
-        prepare_nodes: Sequence[PrepareNode],
-        measure_nodes: Sequence[MeasureNode],
+    results: Sequence,
+    shapes: Sequence[int],
+    communication_graph: MultiDiGraph,
+    prepare_nodes: Sequence[PrepareNode],
+    measure_nodes: Sequence[MeasureNode],
 ):
     """Returns the result of contracting the tensor network."""
     if len(results[0]) > 1:
