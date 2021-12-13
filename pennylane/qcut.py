@@ -228,7 +228,7 @@ def graph_to_tape(graph: MultiDiGraph) -> QuantumTape:
     """Converts a circuit graph to the corresponding quantum tape."""
     wires = Wires.all_wires([n.wires for n in graph.nodes])
 
-    ordered_ops = sorted((order, op) for op, order in graph.nodes(data="order"))
+    ordered_ops = sorted([(order, op) for op, order in graph.nodes(data="order")], key=lambda x: x[0])
     wire_map = {w: w for w in wires}
 
     with QuantumTape() as tape:
