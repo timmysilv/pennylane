@@ -362,7 +362,8 @@ def _get_tensors(
         n_meas = len(m)
         target_shape = (4,) * (n_prep + n_meas)
 
-        fragment_results = math.toarray(results[ctr : s + ctr]).reshape(target_shape)
+        fragment_results = math.stack(results[ctr : s + ctr]).reshape(target_shape)
+
         fragment_results *= np.power(2, -(n_meas + n_prep) / 2)
         ctr += s
 
