@@ -312,9 +312,28 @@ def expand_fragment_tapes(
                     if m.return_type is not Expectation:
                         raise ValueError("Only expectation values supported for now")
                     with stop_recording():
-                        full_tensor = m.obs @ op_tensor
+                        m_obs = m.obs
+                        if isinstance(m_obs, Tensor):
+                            terms = m_obs.obs
+                            for t in terms:
+                                if not isinstance(t, (Identity, PauliX, PauliY, PauliY)):
+                                    raise ValueError("Only tensor products of Paulis for now")
+                            op_tensor_wires = [(t.wires.tolist()[0], t) for t in op_tensor.obs]
+                            m_obs_wires = [(t.wires.tolist()[0], t) for t in terms]
+                            all_wires = sorted(op_tensor_wires + m_obs_wires)
+                            all_terms = [t[1] for t in all_wires]
+                            full_tensor = Tensor(*all_terms)
+                        else:
+                            if not isinstance(m_obs, (Identity, PauliX, PauliY, PauliY)):
+                                raise ValueError("Only tensor products of Paulis for now")
+
+                            op_tensor_wires = [(t.wires.tolist()[0], t) for t in op_tensor.obs]
+                            m_obs_wires = [(m_obs.wires.tolist()[0], m_obs)]
+                            all_wires = sorted(op_tensor_wires + m_obs_wires)
+                            all_terms = [t[1] for t in all_wires]
+                            full_tensor = Tensor(*all_terms)
+
                     expval(full_tensor)
-                    # print(full_tensor)
             elif len(op_tensor.name) > 0:
                 expval(op_tensor)
             else:
@@ -411,5 +430,5 @@ def contract(
 
     tensors = _get_tensors(results, shapes, prepare_nodes, measure_nodes)
     result = _contract_tensors(tensors, communication_graph, prepare_nodes, measure_nodes)
-    print(tensors)
+
     return result
