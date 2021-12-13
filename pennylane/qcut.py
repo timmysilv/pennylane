@@ -324,7 +324,7 @@ def expand_fragment_tapes(
                             all_terms = [t[1] for t in all_wires]
                             full_tensor = Tensor(*all_terms)
                         else:
-                            if not isinstance(m_obs, (Identity, PauliX, PauliY, PauliY)):
+                            if not isinstance(m_obs, (Identity, PauliX, PauliY, PauliZ)):
                                 raise ValueError("Only tensor products of Paulis for now")
 
                             op_tensor_wires = [(t.wires.tolist()[0], t) for t in op_tensor.obs]

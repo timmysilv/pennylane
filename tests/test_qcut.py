@@ -371,3 +371,41 @@ class TestCutCircuit:
         dev.reset()
         expected_res = 0
         assert np.allclose(out, expected_res)
+
+    def test_even_more_advanced(self, mocker):
+        """Test on an even more advanced circuit cutting configuration"""
+        dev = qml.device("default.qubit", wires=6)
+
+        with qml.tape.QuantumTape() as tape:
+            for i in range(2):
+                qml.Hadamard(wires=i)
+
+            qml.CRX(0.4, wires=[0, 1])
+            qml.CRY(0.4, wires=[2, 3])
+            qml.CRZ(0.4, wires=[4, 5])
+
+            qcut.WireCut(wires=[1, 2, 3, 4])
+
+            qml.CRX(0.4, wires=[1, 2])
+            qml.CRX(0.4, wires=[3, 4])
+            #
+            # qcut.WireCut(wires=[1, 2, 3, 4])
+            #
+            # qml.CRY(0.4, wires=[0, 1])
+            # qml.CRY(0.4, wires=[2, 3])
+            # qml.CRZ(0.4, wires=[4, 5])
+
+            qml.expval(qml.PauliX(0) @ qml.PauliX(1))
+
+        expected_out = qml.execute([tape], dev, gradient_fn=None)
+
+        tapes, postproc = qcut.cut_circuit(tape)
+
+        # for t in tapes:
+        #     print(t.draw())
+        results = qml.execute(tapes, dev, gradient_fn=None)
+
+        out = postproc(results)
+        print(out)
+        print(expected_out)
+        print(np.allclose(out, expected_out))
