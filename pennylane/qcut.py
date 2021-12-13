@@ -325,7 +325,7 @@ def expand_fragment_tapes(
     return tapes, prepare_nodes, measure_nodes
 
 
-CHANGE_OF_BASIS_MAT = np.array([[1, 1, 0, 0], [-1, -1, 2, 0], [1, 1, 0, -2], [1, -1, 0, 0]])
+CHANGE_OF_BASIS_MAT = np.array([[1, 1, 0, 0], [-1, -1, 2, 0], [-1, -1, 0, 2], [1, -1, 0, 0]])
 
 
 def _get_tensors(
@@ -411,5 +411,5 @@ def contract(
 
     tensors = _get_tensors(results, shapes, prepare_nodes, measure_nodes)
     result = _contract_tensors(tensors, communication_graph, prepare_nodes, measure_nodes)
-
+    print(tensors)
     return result
