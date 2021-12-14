@@ -827,6 +827,12 @@ class Operation(Operator):
         else:
             assert self.grad_recipe is None, "Gradient recipe is only used by the A method!"
 
+    @property
+    def _cut_expand(self):
+        raise NotImplementedError(
+            f"Cutting the operation {self.name} is not currently supported"
+        )
+
 
 class Channel(Operation, abc.ABC):
     r"""Base class for quantum channels.

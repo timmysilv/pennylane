@@ -11,9 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from functools import partial
+from functools import partial, wraps
 from itertools import product
-from typing import Any, Callable, Dict, Optional, Sequence, Tuple, Union, List
+from typing import Any, Callable, Dict, Optional, Sequence, Tuple, Union, List, Type
 
 from networkx import MultiDiGraph, weakly_connected_components
 
@@ -22,29 +22,53 @@ from pennylane.tape import QuantumTape, stop_recording
 from pennylane.transforms import batch_transform
 from pennylane.measure import MeasurementProcess
 from pennylane.wires import Wires
-from pennylane import apply, PauliX, PauliY, PauliZ, Identity, Hadamard, S, expval
+from pennylane import apply, PauliX, PauliY, PauliZ, Identity, Hadamard, S, expval, Barrier
 from pennylane import math
 import numpy as np
 
 
-class WireCut(Operation):
+class CutTape(QuantumTape):
+    """Special tape to mark cut placement"""
+    def __init__(self, name: str = None, do_queue: bool = True, custom_expand: Optional[Callable] = None):
+        self._custom_expand = custom_expand
+        super().__init__(name=name, do_queue=do_queue)
+
+
+def cut(op: Type[Operation], custom_expand: Optional[Callable] = None):
+    """Cutting transform"""
+
+    @wraps(op)
+    def wrapper(*args, **kwargs):
+        with CutTape(custom_expand=custom_expand) as tape:
+            op(*args, **kwargs)
+
+    return wrapper
+
+
+def wire_cut(wires: Wires):
+    """Apply a wire cut to the specified wires"""
+    return cut(Barrier)(wires=wires)
+
+
+class PlaceholderNode(Operation):
     num_wires = AnyWires
     grad_method = None
 
-    def expand(self) -> QuantumTape:
-        with QuantumTape() as tape:
-            ...
-        return tape
+    def __init__(self, *params, wires):
+        self.terms = params[0] if params else None
+        super().__init__(*params, wires=wires)
 
 
-class MeasureNode(Operation):
-    num_wires = 1
-    grad_method = None
+class MeasureNode(PlaceholderNode):
+    ...
 
 
-class PrepareNode(Operation):
-    num_wires = 1
-    grad_method = None
+class PrepareNode(PlaceholderNode):
+    ...
+
+
+class OperationNode(Operation):
+    ...
 
 
 @batch_transform
@@ -123,8 +147,8 @@ def tape_to_graph(tape: QuantumTape) -> MultiDiGraph:
     return graph
 
 
-def remove_wire_cut_node(node: WireCut, graph: MultiDiGraph):
-    """Removes a WireCut node from the graph"""
+def remove_wire_cut_node(node: CutTape, graph: MultiDiGraph):
+    """Removes a CutTape node from the graph"""
     predecessors = graph.pred[node]
     successors = graph.succ[node]
 
@@ -161,9 +185,9 @@ def remove_wire_cut_node(node: WireCut, graph: MultiDiGraph):
 
 
 def remove_wire_cut_nodes(graph: MultiDiGraph):
-    """Remove all WireCuts from the graph"""
+    """Remove all CutTape from the graph"""
     for op in list(graph.nodes):
-        if isinstance(op, WireCut):
+        if isinstance(op, CutTape):
             remove_wire_cut_node(op, graph)
 
 
