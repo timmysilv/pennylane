@@ -33,7 +33,7 @@ class PlaceholderNode(Operation):
 
     def __init__(self, *params, wires: Wires, do_queue: Optional[bool] = True, id: Optional[str] = None):
         self._terms = params[0] if len(params) > 0 else None
-        super().__init__(*params, wires=wires, do_queue=do_queue, id=id)
+        super().__init__([], wires=wires, do_queue=do_queue, id=id)
 
     @property
     def terms(self) -> List[Callable]:
@@ -54,7 +54,7 @@ class WireCut(Operation):
 
     def __init__(self, *params, wires: Wires, do_queue: Optional[bool] = True, id: Optional[str] = None):
         self._custom_expansion = params[0] if len(params) > 0 else None
-        super().__init__(*params, wires=wires, do_queue=do_queue, id=id)
+        super().__init__([], wires=wires, do_queue=do_queue, id=id)
 
     def expand(self) -> QuantumTape:
         with QuantumTape() as tape:
