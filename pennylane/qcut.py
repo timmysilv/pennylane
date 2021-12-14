@@ -27,24 +27,50 @@ from pennylane import math
 import numpy as np
 
 
+class PlaceholderNode(Operation):
+    num_wires = AnyWires
+    grad_method = None
+
+    def __init__(self, *params, wires: Wires, do_queue: Optional[bool] = True, id: Optional[str] = None):
+        self._terms = params[0] if len(params) > 0 else None
+        super().__init__(*params, wires=wires, do_queue=do_queue, id=id)
+
+    @property
+    def terms(self) -> List[Callable]:
+        return self._terms
+
+
+class MeasureNode(PlaceholderNode):
+    ...
+
+
+class PrepareNode(PlaceholderNode):
+    ...
+
+
 class WireCut(Operation):
     num_wires = AnyWires
     grad_method = None
+
+    def __init__(self, *params, wires: Wires, do_queue: Optional[bool] = True, id: Optional[str] = None):
+        self._custom_expansion = params[0] if len(params) > 0 else None
+        super().__init__(*params, wires=wires, do_queue=do_queue, id=id)
 
     def expand(self) -> QuantumTape:
         with QuantumTape() as tape:
             ...
         return tape
 
+    def expand_cut(self) -> QuantumTape:
+        if self._custom_expansion is not None:
+            return self._custom_expansion(self)
 
-class MeasureNode(Operation):
-    num_wires = 1
-    grad_method = None
+        with QuantumTape() as tape:
+            for wire in self.wires:
+                SimpleMeasureNode(wires=wire)
+                SimplePrepareNode(wires=wire)
 
-
-class PrepareNode(Operation):
-    num_wires = 1
-    grad_method = None
+        return tape
 
 
 @batch_transform
@@ -128,6 +154,9 @@ def remove_wire_cut_node(node: WireCut, graph: MultiDiGraph):
     predecessors = graph.pred[node]
     successors = graph.succ[node]
 
+    expanded_node = node.expand_cut()
+    ops_on_wire = expanded_node.graph._grid
+
     predecessor_on_wire = {}
     for op, data in predecessors.items():
         for d in data.values():
@@ -143,14 +172,21 @@ def remove_wire_cut_node(node: WireCut, graph: MultiDiGraph):
     order = graph.nodes[node]["order"]
     graph.remove_node(node)
 
+    added_nodes = set()
+
     for wire in node.wires:
         predecessor = predecessor_on_wire.get(wire, None)
         successor = successor_on_wire.get(wire, None)
 
-        meas = MeasureNode(wires=wire)
-        prep = PrepareNode(wires=wire)
-        graph.add_node(meas, order=order)
-        graph.add_node(prep, order=order + 0.5)
+        meas, prep = ops_on_wire[expanded_node.wires.index(wire)]
+
+        if meas not in added_nodes:
+            graph.add_node(meas, order=order)
+            added_nodes |= {meas}
+
+        if prep not in added_nodes:
+            graph.add_node(prep, order=order + 0.5)
+            added_nodes |= {prep}
 
         graph.add_edge(meas, prep, wire=wire)
 
@@ -275,6 +311,31 @@ PREPARE_SETTINGS = [_prep_zero_state, _prep_one_state, _prep_plus_state, _prep_i
 MEASURE_SETTINGS = [Identity, PauliX, PauliY, PauliZ]
 
 
+class SimpleMeasureNode(MeasureNode):
+
+    def __init__(self, *params, wires: Wires, do_queue: Optional[bool] = True, id: Optional[str] = None):
+        assert len(Wires(wires)) == 1
+        assert len(params) == 0
+        super().__init__(*params, wires=wires, do_queue=do_queue, id=id)
+
+    @property
+    def terms(self) -> List[Callable]:
+        return MEASURE_SETTINGS
+
+
+class SimplePrepareNode(PrepareNode):
+
+    def __init__(self, *params, wires: Wires, do_queue: Optional[bool] = True,
+                 id: Optional[str] = None):
+        assert len(Wires(wires)) == 1
+        assert len(params) == 0
+        super().__init__(*params, wires=wires, do_queue=do_queue, id=id)
+
+    @property
+    def terms(self) -> List[Callable]:
+        return PREPARE_SETTINGS
+
+
 def expand_fragment_tapes(
     tape: QuantumTape,
 ) -> Tuple[List[QuantumTape], List[PrepareNode], List[MeasureNode]]:
@@ -283,21 +344,24 @@ def expand_fragment_tapes(
     prepare_nodes = [o for o in tape.operations if isinstance(o, PrepareNode)]
     measure_nodes = [o for o in tape.operations if isinstance(o, MeasureNode)]
 
-    prepare_combinations = product(range(len(PREPARE_SETTINGS)), repeat=len(prepare_nodes))
-    measure_combinations = product(range(len(MEASURE_SETTINGS)), repeat=len(measure_nodes))
+    prepare_nodes_terms = [p.terms for p in prepare_nodes]
+    measure_nodes_terms = [m.terms for m in measure_nodes]
+
+    prepare_combinations = product(*prepare_nodes_terms)
+    measure_combinations = product(*measure_nodes_terms)
 
     tapes = []
 
     for prepare_settings, measure_settings in product(prepare_combinations, measure_combinations):
-        prepare_mapping = {n: PREPARE_SETTINGS[s] for n, s in zip(prepare_nodes, prepare_settings)}
-        measure_mapping = {n: MEASURE_SETTINGS[s] for n, s in zip(measure_nodes, measure_settings)}
+        prepare_mapping = {n: s for n, s in zip(prepare_nodes, prepare_settings)}
+        measure_mapping = {n: s for n, s in zip(measure_nodes, measure_settings)}
 
         meas = []
 
         with QuantumTape() as tape_:
             for op in tape.operations:
                 if isinstance(op, PrepareNode):
-                    w = op.wires[0]
+                    w = op.wires
                     prepare_mapping[op](w)
                 elif isinstance(op, MeasureNode):
                     meas.append(op)
@@ -305,7 +369,7 @@ def expand_fragment_tapes(
                     apply(op)
 
             with stop_recording():
-                op_tensor = Tensor(*[measure_mapping[op](op.wires[0]) for op in meas])
+                op_tensor = Tensor(*[measure_mapping[op](op.wires) for op in meas])
 
             if len(tape.measurements) > 0:
                 for m in tape.measurements:
