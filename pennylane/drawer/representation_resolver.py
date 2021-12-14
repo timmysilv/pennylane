@@ -340,6 +340,9 @@ class RepresentationResolver:
 
             return (" " + self.charset.OTIMES + " ").join(constituent_representations)
 
+        from pennylane.qcut import CutTape  # problem with import at top level
+        if isinstance(op, CutTape):
+            return "||"
         if isinstance(op, qml.tape.QuantumTape):
             return self.draw_tape(op)
 

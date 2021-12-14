@@ -29,7 +29,7 @@ import numpy as np
 
 class CutTape(QuantumTape):
     """Special tape to mark cut placement"""
-    def __init__(self, name: str = None, do_queue: bool = True, custom_expand: Optional[Callable] = None):
+    def __init__(self, name: str = "Cut", do_queue: bool = True, custom_expand: Optional[Callable] = None):
         self._custom_expand = custom_expand
         super().__init__(name=name, do_queue=do_queue)
 
@@ -151,6 +151,13 @@ def remove_wire_cut_node(node: CutTape, graph: MultiDiGraph):
     """Removes a CutTape node from the graph"""
     predecessors = graph.pred[node]
     successors = graph.succ[node]
+
+    assert len(node.operations) == 1
+    op = node.operations[0]
+    expanded_tape = node._custom_expand(op) if node._custom_expand is not None else op._cut_expand()
+
+    ops_on_wire = expanded_tape.graph._grid
+    print(ops_on_wire)
 
     predecessor_on_wire = {}
     for op, data in predecessors.items():

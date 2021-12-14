@@ -1186,3 +1186,11 @@ class Barrier(Operation):
 
     def label(self, decimals=None):
         return "||"
+
+    def _cut_expand(self):
+        from pennylane.qcut import MeasureNode, PrepareNode
+        with qml.tape.QuantumTape() as tape:
+            for wire in self.wires:
+                MeasureNode(wires=wire)
+                PrepareNode(wires=wire)
+        return tape
