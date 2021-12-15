@@ -344,7 +344,7 @@ def expand_fragment_tapes(
     return tapes, prepare_nodes, measure_nodes
 
 
-CHANGE_OF_BASIS_MAT = np.array([[1, 1, 0, 0], [-1, -1, 2, 0], [-1, -1, 0, 2], [1, -1, 0, 0]])
+CHANGE_OF_BASIS_MAT = np.array([[1.0, 1, 0, 0], [-1, -1, 2, 0], [-1, -1, 0, 2], [1, -1, 0, 0]])
 
 
 def _get_tensors(
@@ -362,7 +362,7 @@ def _get_tensors(
         n_meas = len(m)
         target_shape = (4,) * (n_prep + n_meas)
 
-        fragment_results = math.stack(results[ctr : s + ctr]).reshape(target_shape)
+        fragment_results = math.reshape(math.stack(results[ctr : s + ctr]), target_shape)
 
         fragment_results *= np.power(2, -(n_meas + n_prep) / 2)
         ctr += s
