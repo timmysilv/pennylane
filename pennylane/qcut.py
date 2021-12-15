@@ -368,7 +368,8 @@ def _get_tensors(
         ctr += s
 
         for i in range(n_prep):
-            fragment_results = math.tensordot(CHANGE_OF_BASIS_MAT, fragment_results, axes=[1, i])
+            change_of_basis = math.convert_like(CHANGE_OF_BASIS_MAT, fragment_results)
+            fragment_results = math.tensordot(change_of_basis, fragment_results, axes=[[1], [i]])
 
         tensors.append(fragment_results)
 
