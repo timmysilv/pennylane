@@ -16,6 +16,9 @@ This module contains functions for computing the parameter-shift gradient
 of a qubit-based quantum tape.
 """
 # pylint: disable=protected-access,too-many-arguments,too-many-statements
+import inspect
+import types
+
 import numpy as np
 
 import pennylane as qml
@@ -58,7 +61,7 @@ def _square_observable(obs):
     return NONINVOLUTORY_OBS[obs.name](obs)
 
 
-def _get_operation_recipe(tape, t_idx, shift=np.pi / 2):
+def _get_operation_recipe(tape, t_idx, shifts=None):
     """Utility function to return the parameter-shift rule
     of the operation corresponding to trainable parameter
     t_idx on tape.
@@ -67,7 +70,15 @@ def _get_operation_recipe(tape, t_idx, shift=np.pi / 2):
     the default two-term parameter-shift rule is assumed.
     """
     op, p_idx = tape.get_operation(t_idx)
-    return op.get_parameter_shift(p_idx, shift=shift)
+
+    try:
+        frequencies = op.parameter_frequencies()[p_idx]
+        coeffs, shifts = qml.gradients.generate_shift_rule(frequencies, shifts=shifts, order=1)
+        mults = np.ones_like(coeffs)
+        return coeffs, mults, shifts
+
+    except qml.operation.OperatorPropertyUndefined:
+        return _process_gradient_recipe(op.get_parameter_shift(p_idx, shifts=shifts))
 
 
 def _process_gradient_recipe(gradient_recipe, tol=1e-10):
@@ -95,18 +106,80 @@ def _gradient_analysis(tape, use_graph=True):
 
         if idx not in tape.trainable_params:
             info["grad_method"] = None
+
         else:
             op = tape._par_info[idx]["op"]
 
-            if op.grad_method == "F":
-                info["grad_method"] = "F"
+            if not qml.operation.has_grad_method(op):
+                info["grad_method"] = None
+
+            elif (tape._graph is not None) or use_graph:
+                # an empty list to store the 'best' partial derivative method
+                # for each observable
+                best = []
+
+                # loop over all observables
+                for ob in tape.observables:
+                    # check if op is an ancestor of ob
+                    has_path = tape.graph.has_path(op, ob)
+
+                    # Use finite differences if there is a path, else the gradient is zero
+                    best.append("A" if has_path else "0")
+
+                if all(k == "0" for k in best):
+                    info["grad_method"] = "0"
+
+                else:
+                    try:
+                        op.parameter_frequencies()
+                        info["grad_method"] = "A"
+                    except (qml.operation.OperatorPropertyUndefined, NotImplementedError):
+                        info["grad_method"] = "A" if op.grad_method == "A" else "F"
             else:
-                info["grad_method"] = tape._grad_method(
-                    idx, use_graph=use_graph, default_method="A"
-                )
+                try:
+                    op.parameter_frequencies()
+                    info["grad_method"] = "A"
+                except (qml.operation.OperatorPropertyUndefined, NotImplementedError):
+                    info["grad_method"] = "A" if op.grad_method == "A" else "F"
 
 
-def expval_param_shift(tape, argnum=None, shift=np.pi / 2, gradient_recipes=None, f0=None):
+def grad_recipe(operation, argnum=0, pass_operator=False):
+    if isinstance(operation, str):
+        operation = getattr(qml, operation)
+
+    argnum_range = argnum if isinstance(argnum, Sequence) else [argnum]
+    existing_argnum_range = []
+
+    if hasattr(operation, "grad_recipes"):
+        existing_grad_recipe = operation.grad_recipes
+        existing_argnum_range = operation.grad_recipes.argnum_range
+
+    def wrapper(recipe_fn):
+
+        @functools.wraps(recipe_fn)
+        def grad_recipes(self, shifts=None, argnum=0):
+            if argnum in argnum_range:
+
+                if pass_operator:
+                    return recipe_fn(shifts=shifts, op=self)
+
+                return recipe_fn(shifts=shifts)
+
+            if argnum in existing_argnum_range:
+                return existing_grad_recipe(self, shifts, argnum)
+
+            raise ValueError(f"No recipe registered for parameter {argnum}")
+
+
+        if isinstance(operation, qml.operation.Operator):
+            operation.grad_recipes = types.MethodType(grad_recipes, operation)
+        else:
+            operation.grad_recipes = grad_recipes
+
+    return wrapper
+
+
+def expval_param_shift(tape, argnum=None, shifts=None, gradient_recipes=None, f0=None):
     r"""Generate the parameter-shift tapes and postprocessing methods required
     to compute the gradient of a gate parameter with respect to an
     expectation value.
@@ -116,10 +189,9 @@ def expval_param_shift(tape, argnum=None, shift=np.pi / 2, gradient_recipes=None
         argnum (int or list[int] or None): Trainable parameter indices to differentiate
             with respect to. If not provided, the derivatives with respect to all
             trainable indices are returned.
-        shift (float): The shift value to use for the two-term parameter-shift formula.
-            Only valid if the operation in question supports the two-term parameter-shift
-            rule (that is, it has two distinct eigenvalues) and ``gradient_recipes``
-            is ``None``.
+        shifts (list[tuple[int or float]]): List containing tuple of shift values. If unspecified,
+            equidistant shifts are assumed. If supplied, one list of shifts must be provided this tuple should match the
+            number of given frequencies.
         gradient_recipes (tuple(list[list[float]] or None)): List of gradient recipes
             for the parameter-shift method. One gradient recipe must be provided
             per trainable parameter.
@@ -169,8 +241,12 @@ def expval_param_shift(tape, argnum=None, shift=np.pi / 2, gradient_recipes=None
 
         # get the gradient recipe for the trainable parameter
         recipe = gradient_recipes[argnum.index(idx)]
-        recipe = recipe or _get_operation_recipe(tape, idx, shift=shift)
-        recipe = _process_gradient_recipe(recipe)
+
+        if recipe is not None:
+            recipe = _process_gradient_recipe(recipe)
+        else:
+            recipe = _get_operation_recipe(tape, idx, shifts=(shifts,))
+
         coeffs, multipliers, shifts = recipe
         fns.append(None)
 

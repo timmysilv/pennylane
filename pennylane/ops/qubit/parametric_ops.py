@@ -54,10 +54,12 @@ class RX(Operation):
     """
     num_wires = 1
     basis = "X"
-    grad_method = "A"
 
     def generator(self):
         return -0.5 * PauliX(wires=self.wires)
+
+    def parameter_frequencies(self):
+        return [(1,)]
 
     @property
     def num_params(self):
@@ -125,10 +127,12 @@ class RY(Operation):
     """
     num_wires = 1
     basis = "Y"
-    grad_method = "A"
 
     def generator(self):
         return -0.5 * PauliY(wires=self.wires)
+
+    def parameter_frequencies(self):
+        return [(1,)]
 
     @property
     def num_params(self):
@@ -191,10 +195,12 @@ class RZ(Operation):
     """
     num_wires = 1
     basis = "Z"
-    grad_method = "A"
 
     def generator(self):
         return -0.5 * PauliZ(wires=self.wires)
+
+    def parameter_frequencies(self):
+        return [(1,)]
 
     @property
     def num_params(self):
@@ -279,10 +285,12 @@ class PhaseShift(Operation):
     """
     num_wires = 1
     basis = "Z"
-    grad_method = "A"
 
     def generator(self):
         return qml.Projector(np.array([1]), wires=self.wires)
+
+    def parameter_frequencies(self):
+        return [(1,)]
 
     @property
     def num_params(self):
@@ -378,10 +386,12 @@ class ControlledPhaseShift(Operation):
     """
     num_wires = 2
     basis = "Z"
-    grad_method = "A"
 
     def generator(self):
         return qml.Projector(np.array([1, 1]), wires=self.wires)
+
+    def parameter_frequencies(self):
+        return [(1,)]
 
     @property
     def num_params(self):
@@ -490,11 +500,13 @@ class Rot(Operation):
         wires (Sequence[int] or int): the wire the operation acts on
     """
     num_wires = 1
-    grad_method = "A"
 
     @property
     def num_params(self):
         return 3
+
+    def parameter_frequencies(self):
+        return [(1,), (1,), (1,)]
 
     @staticmethod
     def compute_matrix(phi, theta, omega):  # pylint: disable=arguments-differ
@@ -588,7 +600,6 @@ class MultiRZ(Operation):
         wires (Sequence[int] or int): the wires the operation acts on
     """
     num_wires = AnyWires
-    grad_method = "A"
 
     def __init__(self, *params, wires=None, do_queue=True, id=None):
         wires = Wires(wires)
@@ -598,6 +609,9 @@ class MultiRZ(Operation):
     @property
     def num_params(self):
         return 1
+
+    def parameter_frequencies(self):
+        return [(1,)]
 
     @staticmethod
     def compute_matrix(theta, n_wires):  # pylint: disable=arguments-differ
@@ -709,7 +723,6 @@ class PauliRot(Operation):
     """
     num_wires = AnyWires
     do_check_domain = False
-    grad_method = "A"
 
     _ALLOWED_CHARACTERS = "IXYZ"
 
@@ -737,6 +750,9 @@ class PauliRot(Operation):
     @property
     def num_params(self):
         return 2
+
+    def parameter_frequencies(self):
+        return [(1,)]
 
     def label(self, decimals=None, base_label=None):
         r"""A customizable string representation of the operator.
@@ -905,14 +921,6 @@ class PauliRot(Operation):
         return PauliRot(-self.parameters[0], self.parameters[1], wires=self.wires)
 
 
-# Four term gradient recipe for controlled rotations
-c1 = INV_SQRT2 * (np.sqrt(2) + 1) / 4
-c2 = INV_SQRT2 * (np.sqrt(2) - 1) / 4
-a = np.pi / 2
-b = 3 * np.pi / 2
-four_term_grad_recipe = ([[c1, 1, a], [-c1, 1, -a], [-c2, 1, b], [c2, 1, -b]],)
-
-
 class CRX(Operation):
     r"""CRX(phi, wires)
     The controlled-RX operator
@@ -952,11 +960,12 @@ class CRX(Operation):
     """
     num_wires = 2
     basis = "X"
-    grad_method = "A"
-    grad_recipe = four_term_grad_recipe
 
     def generator(self):
         return -0.5 * qml.Projector(np.array([1]), wires=self.wires[0]) @ qml.PauliX(self.wires[1])
+
+    def parameter_frequencies(self):
+        return [(0.5, 1,)]
 
     @property
     def num_params(self):
@@ -1066,11 +1075,12 @@ class CRY(Operation):
     """
     num_wires = 2
     basis = "Y"
-    grad_method = "A"
-    grad_recipe = four_term_grad_recipe
 
     def generator(self):
         return -0.5 * qml.Projector(np.array([1]), wires=self.wires[0]) @ qml.PauliY(self.wires[1])
+
+    def parameter_frequencies(self):
+        return [(0.5, 1,)]
 
     @property
     def num_params(self):
@@ -1174,11 +1184,12 @@ class CRZ(Operation):
     """
     num_wires = 2
     basis = "Z"
-    grad_method = "A"
-    grad_recipe = four_term_grad_recipe
 
     def generator(self):
         return -0.5 * qml.Projector(np.array([1]), wires=self.wires[0]) @ qml.PauliZ(self.wires[1])
+
+    def parameter_frequencies(self):
+        return [(0.5, 1,)]
 
     @property
     def num_params(self):
@@ -1292,12 +1303,13 @@ class CRot(Operation):
         wires (Sequence[int]): the wire the operation acts on
     """
     num_wires = 2
-    grad_method = "A"
-    grad_recipe = four_term_grad_recipe * 3
 
     @property
     def num_params(self):
         return 3
+
+    def parameter_frequencies(self):
+        return [(0.5, 1,), (0.5, 1), (0.5, 1)]
 
     def label(self, decimals=None, base_label=None):
         return super().label(decimals=decimals, base_label=base_label or "Rot")
@@ -1403,10 +1415,12 @@ class U1(Operation):
         wires (Sequence[int] or int): the wire the operation acts on
     """
     num_wires = 1
-    grad_method = "A"
 
     def generator(self):
         return qml.Projector(np.array([1]), wires=self.wires)
+
+    def parameter_frequencies(self):
+        return [(1,)]
 
     @property
     def num_params(self):
@@ -1478,11 +1492,13 @@ class U2(Operation):
         wires (Sequence[int] or int): the subsystem the gate acts on
     """
     num_wires = 1
-    grad_method = "A"
 
     @property
     def num_params(self):
         return 2
+
+    def parameter_frequencies(self):
+        return [(1,), (1,)]
 
     @staticmethod
     def compute_matrix(phi, lam):  # pylint: disable=arguments-differ
@@ -1567,11 +1583,13 @@ class U3(Operation):
         wires (Sequence[int] or int): the subsystem the gate acts on
     """
     num_wires = 1
-    grad_method = "A"
 
     @property
     def num_params(self):
         return 3
+
+    def parameter_frequencies(self):
+        return [(1,), (1,), (1,)]
 
     @staticmethod
     def compute_matrix(theta, phi, lam):  # pylint: disable=arguments-differ
@@ -1653,10 +1671,12 @@ class IsingXX(Operation):
         wires (int): the subsystem the gate acts on
     """
     num_wires = 2
-    grad_method = "A"
 
     def generator(self):
         return -0.5 * PauliX(wires=self.wires[0]) @ PauliX(wires=self.wires[1])
+
+    def parameter_frequencies(self):
+        return [(1,)]
 
     @property
     def num_params(self):
@@ -1730,10 +1750,12 @@ class IsingYY(Operation):
         wires (int): the subsystem the gate acts on
     """
     num_wires = 2
-    grad_method = "A"
 
     def generator(self):
         return -0.5 * PauliY(wires=self.wires[0]) @ PauliY(wires=self.wires[1])
+
+    def parameter_frequencies(self):
+        return [(1,)]
 
     @property
     def num_params(self):
@@ -1804,10 +1826,12 @@ class IsingZZ(Operation):
         wires (int): the subsystem the gate acts on
     """
     num_wires = 2
-    grad_method = "A"
 
     def generator(self):
         return -0.5 * PauliZ(wires=self.wires[0]) @ PauliZ(wires=self.wires[1])
+
+    def parameter_frequencies(self):
+        return [(1,)]
 
     @property
     def num_params(self):

@@ -1028,6 +1028,10 @@ class Operator(abc.ABC):
             gen_eigvals = tuple(self.generator().eigvals())
             return qml.gradients.eigvals_to_frequencies(gen_eigvals)
 
+        raise OperatorPropertyUndefined(
+            f"Operation {self.name} does not have parameter frequencies."
+        )
+
     def queue(self, context=qml.QueuingContext):
         """Append the operator to the Operator queue."""
         context.append(self)
@@ -1269,8 +1273,6 @@ class Operation(Operator):
                 assert (
                     len(self.grad_recipe) == self.num_params
                 ), "Gradient recipe must have one entry for each parameter!"
-        else:
-            assert self.grad_recipe is None, "Gradient recipe is only used by the A method!"
 
 
 class Channel(Operation, abc.ABC):
@@ -2233,7 +2235,14 @@ def has_gen(obj):
 @qml.BooleanFn
 def has_grad_method(obj):
     """Returns ``True`` if an operator has a grad_method defined."""
-    return obj.grad_method is not None
+    if obj.grad_method is not None:
+        return True
+
+    try:
+        obj.parameter_frequencies()
+        return True
+    except (AttributeError, OperatorPropertyUndefined):
+        return False
 
 
 @qml.BooleanFn
