@@ -28,7 +28,7 @@ def compute_indices_MPS(wires, n_block_wires):
         wires (Iterable): wires that the template acts on
         n_block_wires (int): number of wires per block
     Returns:
-        layers (array): array of wire indices or wire labels for each block
+        layers (array): array of wire labels for each block
     """
 
     n_wires = len(wires)
@@ -51,16 +51,15 @@ def compute_indices_MPS(wires, n_block_wires):
             f"The number of wires should be a multiple of {int(n_block_wires/2)}; got {n_wires}"
         )
 
-    layers = np.array(
-        [
-            [wires[idx] for idx in range(j, j + n_block_wires)]
-            for j in range(
-                0,
-                len(wires) - int(len(wires) % (n_block_wires // 2)) - n_block_wires // 2,
-                n_block_wires // 2,
-            )
-        ]
-    )
+    layers = [
+        [wires[idx] for idx in range(j, j + n_block_wires)]
+        for j in range(
+            0,
+            len(wires) - int(len(wires) % (n_block_wires // 2)) - n_block_wires // 2,
+            n_block_wires // 2,
+        )
+    ]
+
     return layers
 
 
@@ -116,9 +115,12 @@ class MPS(Operation):
         3: ──────────────────────────────╰X──RY(-0.3)──┤ ⟨Z⟩
     """
 
-    num_params = 1
     num_wires = AnyWires
-    par_domain = "A"
+    grad_method = None
+
+    @property
+    def num_params(self):
+        return 1
 
     def __init__(
         self,
@@ -160,7 +162,7 @@ class MPS(Operation):
 
         with qml.tape.QuantumTape() as tape:
             for idx, w in enumerate(self.ind_gates):
-                self.block(weights=self.template_weights[idx][:], wires=w.tolist())
+                self.block(weights=self.template_weights[idx][:], wires=w)
 
         return tape
 
