@@ -231,7 +231,8 @@ def generate_shift_rule(frequencies, shifts=None, order=1):
     requested via the ``order`` argument. For example, to extract the second order shift rule for a
     gate with generator :math:`X/2`:
 
-    >>> eigvals = (0.5, -0.5) frequencies = eigvals_to_frequencies(eigvals)
+    >>> eigvals = (0.5, -0.5)
+    >>> frequencies = eigvals_to_frequencies(eigvals)
     >>> generate_shift_rule(frequencies, order=2)
     [[-0.5       ,   0.5       ],
      [ 0.        ,  -3.14159265]]

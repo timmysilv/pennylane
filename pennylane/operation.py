@@ -985,6 +985,44 @@ class Operator(abc.ABC):
         """
         raise GeneratorUndefinedError(f"Operation {self.name} does not have a generator")
 
+    def parameter_frequencies(self):
+        r"""Returns the frequencies for each operator parameter with respect
+        to an expectation value of the form
+        :math:`\langle \psi | U(\mathbf{p})^\dagger \hat{O} U(\mathbf{p})|\psi\rangle`.
+
+        These frequencies encode the behaviour of the operator :math:`U(\mathbf{p})`
+        on the value of the expectation value as the parameters are modified.
+
+        For more details, please see the :mod:`.pennylane.fourier` module.
+
+        Returns:
+            list[tuple[int or float]]: Tuple of frequencies for each parameter.
+                Note that only non-negative frequency values are returned.
+
+        **Example**
+
+        >>> op = qml.CRot(0.4, 0.1, 0.3, wires=[0, 1])
+        >>> op.parameter_frequencies()
+        [(0.5, 1), (0.5, 1), (0.5, 1)]
+
+        For operators that define a generator, the parameter frequencies are directly
+        related to the eigenvalues of the generator:
+
+        >>> op = qml.ControlledPhaseShift(0.1, wires=[0, 1])
+        >>> op.parameter_frequencies()
+        [(1,)]
+        >>> gen_eigvals = tuple(op.generator().eigvals())
+        >>> qml.gradients.eigvals_to_frequencies(gen_eigvals)
+        (1.0,)
+
+        For more details on this relationship, see :func:`.eigvals_to_frequencies`.
+        """
+        if self.num_params == 1:
+            # if the operator has a single parameter, we can query the
+            # generator, and if defined, use its eigenvalues.
+            gen_eigvals = tuple(self.generator().eigvals())
+            return qml.gradients.eigvals_to_frequencies(gen_eigvals)
+
     def queue(self, context=qml.QueuingContext):
         """Append the operator to the Operator queue."""
         context.append(self)
