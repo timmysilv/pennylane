@@ -1,4 +1,4 @@
-# Copyright 2018-2021 Xanadu Quantum Technologies Inc.
+# Copyright 2018-2022 Xanadu Quantum Technologies Inc.
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,18 +26,20 @@ from pennylane.interfaces.batch import set_shots, SUPPORTED_INTERFACES
 
 
 class QNode:
-    """Represents a quantum node in the hybrid computational graph.
+    """Represents a cluster of quantum nodes in the hybrid computational graph.
 
-    A *quantum node* contains a :ref:`quantum function <intro_vcirc_qfunc>`
-    (corresponding to a :ref:`variational circuit <glossary_variational_circuit>`)
-    and the computational device it is executed on.
+    A *quantum node* contains a collection of :ref:`quantum functions <intro_vcirc_qfunc>`
+    (each corresponding to a :ref:`variational circuit <glossary_variational_circuit>`)
+    and the computational devices they can be executed on.
 
-    The QNode calls the quantum function to construct a :class:`~.QuantumTape` instance representing
-    the quantum circuit.
+    The QNode calls the quantum functions to construct :class:`~.QuantumTape` instances representing
+    quantum circuits.
 
     Args:
-        func (callable): a quantum function
-        device (~.Device): a PennyLane-compatible device
+        funcs (callable or Sequence[callable]): a quantum function or a collection of quantum
+            functions
+        devices (Device or Sequence[Device]): a PennyLane-compatible device or a collection of
+            devices
         interface (str): The interface that will be used for classical backpropagation.
             This affects the types of objects that can be passed to/returned from the QNode:
 
@@ -65,7 +67,7 @@ class QNode:
         diff_method (str or .gradient_transform): The method of differentiation to use in the created QNode.
             Can either be a :class:`~.gradient_transform`, which includes all quantum gradient
             transforms in the :mod:`qml.gradients <.gradients>` module, or a string. The following
-            strings are allowed:
+            strings are allowed: TODO - reword
 
             * ``"best"``: Best available method. Uses classical backpropagation or the
               device directly to compute the gradient if supported, otherwise will use
@@ -154,7 +156,7 @@ class QNode:
 
     def __init__(
         self,
-        func,
+        funcs,
         device,
         interface="autograd",
         diff_method="best",
@@ -209,7 +211,7 @@ class QNode:
             self.execute_kwargs["expand_fn"] = None
 
         # internal data attributes
-        self._tape = None
+        self._tapes = []
         self._qfunc_output = None
         self._user_gradient_kwargs = gradient_kwargs
         self._original_device = device
@@ -260,7 +262,7 @@ class QNode:
         # FIX: If the qnode swapped the device, increase the num_execution value on the original device.
         # In the long run, we should make sure that the user's device is the one
         # actually run so she has full control. This could be done by changing the class
-        # of the user's device before and after executing the tape.
+        # of the user's device before and after execution.
 
         if self.device is not self._original_device:
             self._original_device._num_executions += 1  # pylint: disable=protected-access
@@ -468,9 +470,17 @@ class QNode:
         )
 
     @property
+    def tapes(self):
+        """The quantum tapes contained within the QNode"""
+        return self._tapes
+
+    @property
     def tape(self):
-        """The quantum tape"""
-        return self._tape
+        if len(self._tapes) == 1:
+            return self._tapes[0]
+        else:
+            raise ValueError("QNode is composed of multiple tapes. Access the qnode.tapes property "
+                             "instead.")
 
     qtape = tape  # for backwards compatibility
 
@@ -531,6 +541,19 @@ class QNode:
         # all operations are supported by the transform.
         if isinstance(self.gradient_fn, qml.gradients.gradient_transform):
             self._tape = self.gradient_fn.expand_fn(self._tape)
+
+    def processing_fn(self, res):
+        """Processing function to be applied to the output result of executing the QNode's circuits.
+
+        Defaults to the identity function.
+
+        Args:
+            res (list[tensor_like]): results of executing the QNode's circuits
+
+        Returns:
+            Any: processed results
+        """
+        return res
 
     def __call__(self, *args, **kwargs):
         override_shots = False
