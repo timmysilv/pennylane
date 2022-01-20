@@ -218,7 +218,8 @@ class QNode:
         self._qfunc_output = None
         self._user_gradient_kwargs = gradient_kwargs
         self.grad_info = {dev: {} for dev in self.devices}
-        self._qnode_transforms = []
+        self._qnode_transform = None
+        self._processing_fn = None
 
         self._update_gradient_fn()
         functools.update_wrapper(self, func)
@@ -354,37 +355,11 @@ class QNode:
         """Construct the collection of quantum tapes in the QNode"""
         self.construct_original_tape(args, kwargs)
 
-        tapes = [self._original_tape]
-        funcs_map = {}
-
-        for transform in self._qnode_transforms:
-            transformed_tapes = []
-            for tape in tapes:
-                f_ = funcs_map.pop(tape, None)
-
-                t, f = transform(tape)
-                transformed_tapes.extend(t)
-
-                for t_ in t:
-                    funcs_map[t_] = f
-
-                funcs_map[f] = f_
-            tapes = transformed_tapes
-
-        def processing_fn(res):
-
-            funcs_to_results = defaultdict(lambda: [])
-            for r, t in zip(res, tapes):
-                f = funcs_map[t]
-                funcs_to_results[f].append(t)
-
-            new_res = [map(f, r) for f, r in funcs_to_results.items()]
-            funcs_at_level = list(funcs_to_results.keys())
-
-            while len(funcs_at_level) > 1:
-
-
-
+        if self._qnode_transform is not None:
+            self._tapes, self._processing_fn = self._qnode_transform(self._original_tape)
+        else:
+            self._tapes = [self._original_tape]
+            self._processing_fn = lambda x: x[0]
 
         # TODO
         # if self.expansion_strategy == "device":
@@ -404,25 +379,25 @@ class QNode:
             # interpret it as device shots value for this call.
             override_shots = kwargs.pop("shots", False)
 
-            if override_shots is not False:
-                # Since shots has changed, we need to update the preferred gradient function.
-                # This is because the gradient function chosen at initialization may
-                # no longer be applicable.
-
-                # store the initialization gradient function
-                original_grad_fn = [self.gradient_fn, self.gradient_kwargs, self.device]
-
-                # update the gradient function
-                set_shots(self._original_device, override_shots)(self._update_gradient_fn)()
+            # if override_shots is not False: # TODO
+            #     # Since shots has changed, we need to update the preferred gradient function.
+            #     # This is because the gradient function chosen at initialization may
+            #     # no longer be applicable.
+            #
+            #     # store the initialization gradient function
+            #     original_grad_fn = [self.gradient_fn, self.gradient_kwargs, self.device]
+            #
+            #     # update the gradient function
+            #     set_shots(self._original_device, override_shots)(self._update_gradient_fn)()
 
         # construct the tape
         self.construct(args, kwargs)
 
-        # preprocess the tapes by applying any device-specific transforms
-        tapes, processing_fn = self.device.batch_transform(self.tape)
+        # # preprocess the tapes by applying any device-specific transforms
+        # tapes, processing_fn = self.device.batch_transform(self.tape)
 
         res = qml.execute(
-            tapes,
+            self.tapes,
             device=self.device,
             gradient_fn=self.gradient_fn,
             interface=self.interface,
@@ -431,13 +406,13 @@ class QNode:
             **self.execute_kwargs,
         )
 
-        res = processing_fn(res)
+        res = self.processing_fn(res)
 
-        if override_shots is not False:
-            # restore the initialization gradient function
-            self.gradient_fn, self.gradient_kwargs, self.device = original_grad_fn
+        # if override_shots is not False:
+        #     # restore the initialization gradient function
+        #     self.gradient_fn, self.gradient_kwargs, self.device = original_grad_fn
 
-        self._update_original_device()
+        # self._update_original_device()
 
         if isinstance(self._qfunc_output, Sequence) or (
             self.tape.is_sampled and self.device._has_partitioned_shots()
