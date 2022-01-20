@@ -361,16 +361,6 @@ class QNode:
             self._tapes = [self._original_tape]
             self._processing_fn = lambda x: x[0]
 
-        # TODO
-        # if self.expansion_strategy == "device":
-        #     self._tape = self.device.expand_fn(self.tape, max_expansion=self.max_expansion)
-
-        # TODO
-        # If the gradient function is a transform, expand the tape so that
-        # all operations are supported by the transform.
-        # if isinstance(self.gradient_fn, qml.gradients.gradient_transform):
-        #     self._tape = self.gradient_fn.expand_fn(self._tape)
-
     def __call__(self, *args, **kwargs):
         override_shots = False
 

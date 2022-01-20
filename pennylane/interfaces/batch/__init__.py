@@ -387,6 +387,9 @@ def execute(
             f"version of {interface_name} to enable the '{interface}' interface."
         ) from e
 
+    if isinstance(gradient_fn, qml.gradients.gradient_transform):
+        tapes = [gradient_fn.expand_fn(tape) for tape in tapes]
+
     res = _execute(
         tapes, device, execute_fn, gradient_fn, gradient_kwargs, _n=1, max_diff=max_diff, mode=_mode
     )
