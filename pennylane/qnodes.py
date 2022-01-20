@@ -274,23 +274,6 @@ class QNode:
             self.grad_info[dev]["gradient_kwargs"] = gradient_kwargs
             self.grad_info[dev]["device"] = device
 
-    def _update_original_device(self):
-        # FIX: If the qnode swapped the device, increase the num_execution value on the original device.
-        # In the long run, we should make sure that the user's device is the one
-        # actually run so she has full control. This could be done by changing the class
-        # of the user's device before and after executing the tape.
-        # TODO
-        if self.device is not self._original_device:
-            self._original_device._num_executions += 1  # pylint: disable=protected-access
-
-            # Update for state vector simulators that have the _pre_rotated_state attribute
-            if hasattr(self._original_device, "_pre_rotated_state"):
-                self._original_device._pre_rotated_state = self.device._pre_rotated_state
-
-            # Update for state vector simulators that have the _state attribute
-            if hasattr(self._original_device, "_state"):
-                self._original_device._state = self.device._state
-
     @property
     def tapes(self):
         """The collection of quantum tapes"""
@@ -347,11 +330,11 @@ class QNode:
                 if len(obj.wires) != self.device.num_wires:
                     raise qml.QuantumFunctionError(f"Operator {obj.name} must act on all wires")
 
-            if isinstance(obj, qml.ops.qubit.SparseHamiltonian) and self.gradient_fn == "backprop":
-                raise qml.QuantumFunctionError(
-                    "SparseHamiltonian observable must be used with the parameter-shift"
-                    " differentiation method"
-                )
+            # if isinstance(obj, qml.ops.qubit.SparseHamiltonian) and self.gradient_fn == "backprop":
+            #     raise qml.QuantumFunctionError(
+            #         "SparseHamiltonian observable must be used with the parameter-shift"
+            #         " differentiation method"
+            #     )
 
     def construct(self, args, kwargs):
         """Construct the collection of quantum tapes in the QNode"""
@@ -385,17 +368,16 @@ class QNode:
         # construct the tape
         self.construct(args, kwargs)
 
-        res = qml.execute(
+        res = schedule(
             self.tapes,
-            device=self.device,
-            gradient_fn=self.gradient_fn,
+            devices=self.devices,
+            grad_info=self.grad_info,
             interface=self.interface,
-            gradient_kwargs=self.gradient_kwargs,
             override_shots=override_shots,
-            **self.execute_kwargs,
+            **self.execute_kwargs
         )
 
-        res = self.processing_fn(res)
+        res = self._processing_fn(res)
 
         # if autograd.isinstance(res, (tuple, list)) and len(res) == 1:
         #     # If a device batch transform was applied, we need to 'unpack'
@@ -414,8 +396,6 @@ class QNode:
         # if override_shots is not False:
         #     # restore the initialization gradient function
         #     self.gradient_fn, self.gradient_kwargs, self.device = original_grad_fn
-
-        # self._update_original_device()
 
         if isinstance(self._qfunc_output, Sequence) or (
             self.tape.is_sampled and self.device._has_partitioned_shots()
@@ -626,3 +606,54 @@ def _validate_parameter_shift(device):
         f"Device {device.short_name} uses an unknown model ('{model}') "
         "that does not support the parameter-shift rule."
     )
+
+
+##############################################################################
+# Scheduling
+##############################################################################
+
+
+def schedule(
+        tapes,
+        devices,
+        grad_info,
+        interface,
+        override_shots,
+        **execute_kwargs
+):
+    """TODO"""
+    if len(devices) == 1:
+        dev = devices[0]
+
+        if grad_info[dev]["device"] is not dev:
+            dev._num_executions += len(tapes)
+
+        return qml.execute(
+            tapes,
+            device=grad_info[dev]["device"],
+            gradient_fn=grad_info[dev]["gradient_fn"],
+            interface=interface,
+            gradient_kwargs=grad_info[dev]["gradient_kwargs"],
+            override_shots=override_shots,
+            **execute_kwargs,
+        )
+
+    tapes_by_dev = [[tapes[0]], tapes[1:]]  # Mocked out dispatching
+
+    res = []
+
+    for tapes, dev in zip(tapes_by_dev, devices):
+        res.extend(qml.execute(
+            tapes,
+            device=grad_info[dev]["device"],
+            gradient_fn=grad_info[dev]["gradient_fn"],
+            interface=interface,
+            gradient_kwargs=grad_info[dev]["gradient_kwargs"],
+            override_shots=override_shots,
+            **execute_kwargs,
+        ))
+
+        if grad_info[dev]["device"] is not dev:
+            dev._num_executions += len(tapes)
+
+    return res
