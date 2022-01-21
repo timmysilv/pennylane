@@ -30,6 +30,39 @@ from typing import List, Dict
 
 
 def default_validator(tapes, devices):
+    """Captures which tapes can be run on which devices.
+
+    Args:
+        tapes (list[QuantumTape]): the sequence of tapes to be run
+        devices (list[Device]): the available devices to run them
+
+    Returns:
+        dict[Device, list[QuantumTape]]: a mapping from available devices to the tapes that can
+        be run on them
+
+    **Example**
+
+    .. code-block:: python
+
+        import pennylane as qml
+
+        dev1 = qml.device("default.qubit", wires=2)
+        dev2 = qml.device("default.qubit", wires=3)
+
+        with qml.tape.QuantumTape() as tape1:
+            qml.Toffoli(wires=[0, 1, 2])
+
+        with qml.tape.QuantumTape() as tape2:
+            qml.CNOT(wires=[0, 1])
+
+        tapes = [tape1, tape2]
+        devs = [dev1, dev2]
+
+    >>> qml.default_validator(tapes, devs)
+    {<DefaultQubit device (wires=2, shots=None) at 0x7f43b6b58c10>: [<QuantumTape: wires=[0, 1], params=0>],
+     <DefaultQubit device (wires=3, shots=None) at 0x7f43b6bab690>: [<QuantumTape: wires=[0, 1, 2], params=0>,
+       <QuantumTape: wires=[0, 1], params=0>]}
+    """
     map = {}
 
     for dev in devices:
@@ -43,6 +76,50 @@ def default_validator(tapes, devices):
 
 
 def default_distributor(tapes: List, devices: List[qml.Device], validation: Dict[qml.Device, List]):
+    """Distributes the sequence of tapes to compatible devices.
+
+    Uses a naive approach of distributing circuits evenly between all compatible devices.
+    Compatibility is determined by the ``validation`` argument.
+
+    Args:
+        tapes (list[QuantumTape]): the sequence of tapes to be run
+        devices (list[Device]): the available devices to run them
+        validation (dict[Device, list[QuantumTape]]): a mapping from available devices to the tapes
+            that can be run on them
+
+    Returns:
+        tuple[dict[Device, list[QuantumTape]], dict[Device, list[int]]]: a mapping from available
+        devices to the tapes that should be run on them, as well as a mapping from available devices
+        to the order of the contained tapes relative to the input ``tapes`` list
+
+    **Example**
+
+    .. code-block:: python
+
+        import pennylane as qml
+
+        dev1 = qml.device("default.qubit", wires=2)
+        dev2 = qml.device("default.qubit", wires=3)
+
+        with qml.tape.QuantumTape() as tape1:
+            qml.Toffoli(wires=[0, 1, 2])
+
+        with qml.tape.QuantumTape() as tape2:
+            qml.CNOT(wires=[0, 1])
+
+        tapes = [tape1, tape2]
+        devs = [dev1, dev2]
+
+        validation = qml.default_validator(tapes, devs)
+
+    >>> qml.default_distributor(tapes, devs, validation)
+    ({<DefaultQubit device (wires=2, shots=None) at 0x7fe4f4169310>: [<QuantumTape: wires=[0, 1], params=0>],
+      <DefaultQubit device (wires=3, shots=None) at 0x7fe5a00f9a10>: [<QuantumTape: wires=[0, 1], params=0>,
+       <QuantumTape: wires=[0, 1, 2], params=0>]},
+     {<DefaultQubit device (wires=2, shots=None) at 0x7fe4f4169310>: [1],
+      <DefaultQubit device (wires=3, shots=None) at 0x7fe5a00f9a10>: [1, 0]})
+    # TODO: this isn't working as expected - the 3-wire device shouldn't have the 2-wire circuit.
+    """
     distributed = False
     distribution = {device: [] for device in devices}
     distribution_positions = {device: [] for device in devices}
