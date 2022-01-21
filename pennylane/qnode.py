@@ -67,7 +67,7 @@ def executor(tapes: List, devices: List[qml.Device], **execute_kwargs):
     validation = default_validator(tapes, devices)
     distribution, distribution_positions = default_distributor(tapes, devices, validation)
 
-    results = qml.math.empty(len(tapes))
+    results = [None] * len(tapes)
 
     for device, tapes in distribution.items():
         res = qml.execute(tapes, device, **execute_kwargs)
