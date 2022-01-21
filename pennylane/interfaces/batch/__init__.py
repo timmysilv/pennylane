@@ -24,6 +24,7 @@ from cachetools import LRUCache
 import numpy as np
 
 import pennylane as qml
+from pennylane.ops.qubit import SparseHamiltonian
 
 
 INTERFACE_NAMES = {
@@ -212,9 +213,35 @@ def execute(
         device (.Device): Device to use to execute the batch of tapes.
             If the device does not provide a ``batch_execute`` method,
             by default the tapes will be executed in serial.
-        gradient_fn (None or callable): The gradient transform function to use
-            for backward passes. If "device", the device will be queried directly
-            for the gradient (if supported).
+        gradient_fn (None or gradient_transform or str): The gradient transform function to use
+            for backward passes. Can either be a :class:`~.gradient_transform`, which includes all
+            quantum gradient transforms in the :mod:`qml.gradients <.gradients>` module, or a
+            string. The following strings are allowed:
+
+            * ``"best"``: Best available method. Uses classical backpropagation or the
+              device directly to compute the gradient if supported, otherwise will use
+              the analytic parameter-shift rule where possible with finite-difference as a fallback.
+
+            * ``"device"``: Queries the device directly for the gradient.
+              Only allowed on devices that provide their own gradient computation.
+
+            * ``"backprop"``: Use classical backpropagation. Only allowed on
+              simulator devices that are classically end-to-end differentiable,
+              for example :class:`default.qubit <~.DefaultQubit>`. Note that
+              the returned QNode can only be used with the machine-learning
+              framework supported by the device.
+
+            * ``"adjoint"``: Uses an `adjoint method <https://arxiv.org/abs/2009.02823>`__ that
+              reverses through the circuit after a forward pass by iteratively applying the inverse
+              (adjoint) gate. Only allowed on supported simulator devices such as
+              :class:`default.qubit <~.DefaultQubit>`.
+
+            * ``"parameter-shift"``: Use the analytic parameter-shift
+              rule for all supported quantum operation arguments, with finite-difference
+              as a fallback.
+
+            * ``"finite-diff"``: Uses numerical finite-differences for all quantum operation
+              arguments.
         interface (str): The interface that will be used for classical autodifferentiation.
             This affects the types of parameters that can exist on the input tapes.
             Available options include ``autograd``, ``torch``, ``tf``, and ``jax``.
@@ -232,10 +259,21 @@ def execute(
             the maximum number of derivatives to support. Increasing this value allows
             for higher order derivatives to be extracted, at the cost of additional
             (classical) computational overhead during the backwards pass.
-        expand_fn (function): Tape expansion function to be called prior to device execution.
+        override_shots (int or list[int] or bool): Overrides the number of shots specified by the
+            device. Defaults to False.
+        expand_fn (function or str): Tape expansion function to be called prior to device execution.
             Must have signature of the form ``expand_fn(tape, max_expansion)``, and return a
-            single :class:`~.QuantumTape`. If not provided, by default :meth:`Device.expand_fn`
-            is called.
+            single :class:`~.QuantumTape`. The following strings can also be specified:
+
+            - ``gradient``: Attempt to decompose circuits such that all operations are supported by
+              the gradient method. Further decompositions required for device execution are
+              performed by the device prior to circuit execution.
+
+            - ``device`` (default): Attempt to decompose the internal circuit such that all circuit
+              operations are natively supported by the device.
+
+            The ``gradient`` strategy typically results in a reduction in quantum device evaluations
+            required during optimization, at the expense of an increase in classical preprocessing.
         max_expansion (int): The number of times the internal circuit should be expanded when
             executed on a device. Expansion occurs when an operation or measurement is not
             supported, and results in a gate decomposition. If any operations in the decomposition
@@ -303,7 +341,26 @@ def execute(
            [ 0.01983384, -0.97517033,  0.        ],
            [ 0.        ,  0.        , -0.95533649]])
     """
-    gradient_kwargs = gradient_kwargs or {}
+    original_device = device
+
+    if override_shots:
+        get_gradient_fn = set_shots(device, override_shots)(qml.gradients.get_gradient_fn)
+    else:
+        get_gradient_fn = qml.gradients.get_gradient_fn
+
+    gradient_fn, gradient_kwargs_, device = get_gradient_fn(device, interface, gradient_fn)
+    gradient_kwargs = {**gradient_kwargs_, **gradient_kwargs}
+
+    if gradient_fn == "backprop":
+        sparse = any(any(isinstance(o, SparseHamiltonian) for o in t.observables) for t in tapes)
+        if sparse:
+            raise qml.QuantumFunctionError(
+                "SparseHamiltonian observable must be used with the parameter-shift"
+                " differentiation method"
+            )
+
+    if expand_fn == "gradient" and isinstance(gradient_fn, qml.gradients.gradient_transform):
+            tapes = [gradient_fn.expand_fn(tape) for tape in tapes]
 
     if device_batch_transform:
         tapes, batch_fn = qml.transforms.map_batch_transform(device.batch_transform, tapes)
@@ -403,4 +460,27 @@ def execute(
         tapes, device, execute_fn, gradient_fn, gradient_kwargs, _n=1, max_diff=max_diff, mode=_mode
     )
 
+    _update_original_device(device, original_device)
+
     return batch_fn(res)
+
+
+def _update_original_device(device, original_device, num_executions):
+    # FIX: If the qnode swapped the device, increase the num_execution value on the original device.
+    # In the long run, we should make sure that the user's device is the one
+    # actually run so she has full control. This could be done by changing the class
+    # of the user's device before and after executing the tape.
+
+    if device is not original_device:
+        original_device._num_executions += num_executions  # pylint: disable=protected-access
+
+        # Update for state vector simulators that have the _pre_rotated_state attribute
+        if hasattr(original_device, "_pre_rotated_state"):
+            original_device._pre_rotated_state = device._pre_rotated_state
+
+        # Update for state vector simulators that have the _state attribute
+        if hasattr(original_device, "_state"):
+            original_device._state = device._state
+
+        if device._has_partitioned_shots():
+            original_device._has_partitioned_shots()

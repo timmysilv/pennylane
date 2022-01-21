@@ -1,4 +1,4 @@
-# Copyright 2018-2021 Xanadu Quantum Technologies Inc.
+# Copyright 2018-2022 Xanadu Quantum Technologies Inc.
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -209,17 +209,17 @@ class QNode:
         }
 
         if self.expansion_strategy == "device":
-            self.execute_kwargs["expand_fn"] = None
+            self.execute_kwargs["expand_fn"] = None  # Why not "device"?
+        elif self.expansion_strategy == "gradient":
+            self.execute_kwargs["expand_fn"] = "gradient"
+        else:
+            raise ValueError("Invalid expansion strategy")
 
         # internal data attributes
         self._tape = None
         self._qfunc_output = None
-        self._user_gradient_kwargs = gradient_kwargs
-        self._original_device = device
-        self.gradient_fn = None
-        self.gradient_kwargs = None
+        self.gradient_kwargs = gradient_kwargs
 
-        self._update_gradient_fn()
         functools.update_wrapper(self, func)
 
     def __repr__(self):
@@ -245,36 +245,6 @@ class QNode:
             )
 
         self._interface = value
-        self._update_gradient_fn()
-
-    def _update_gradient_fn(self):
-        if self.diff_method is None:
-            self._interface = None
-            self.gradient_fn = None
-            self.gradient_kwargs = {}
-            return
-
-        self.gradient_fn, self.gradient_kwargs, self.device = get_gradient_fn(
-            self._original_device, self.interface, self.diff_method
-        )
-        self.gradient_kwargs.update(self._user_gradient_kwargs or {})
-
-    def _update_original_device(self):
-        # FIX: If the qnode swapped the device, increase the num_execution value on the original device.
-        # In the long run, we should make sure that the user's device is the one
-        # actually run so she has full control. This could be done by changing the class
-        # of the user's device before and after executing the tape.
-
-        if self.device is not self._original_device:
-            self._original_device._num_executions += 1  # pylint: disable=protected-access
-
-            # Update for state vector simulators that have the _pre_rotated_state attribute
-            if hasattr(self._original_device, "_pre_rotated_state"):
-                self._original_device._pre_rotated_state = self.device._pre_rotated_state
-
-            # Update for state vector simulators that have the _state attribute
-            if hasattr(self._original_device, "_state"):
-                self._original_device._state = self.device._state
 
     @property
     def tape(self):
@@ -327,38 +297,8 @@ class QNode:
                 if len(obj.wires) != self.device.num_wires:
                     raise qml.QuantumFunctionError(f"Operator {obj.name} must act on all wires")
 
-            if isinstance(obj, qml.ops.qubit.SparseHamiltonian) and self.gradient_fn == "backprop":
-                raise qml.QuantumFunctionError(
-                    "SparseHamiltonian observable must be used with the parameter-shift"
-                    " differentiation method"
-                )
-
-        if self.expansion_strategy == "device":
-            self._tape = self.device.expand_fn(self.tape, max_expansion=self.max_expansion)
-
-        # If the gradient function is a transform, expand the tape so that
-        # all operations are supported by the transform.
-        if isinstance(self.gradient_fn, qml.gradients.gradient_transform):
-            self._tape = self.gradient_fn.expand_fn(self._tape)
-
     def __call__(self, *args, **kwargs):
-        override_shots = False
-
-        if not self._qfunc_uses_shots_arg:
-            # If shots specified in call but not in qfunc signature,
-            # interpret it as device shots value for this call.
-            override_shots = kwargs.pop("shots", False)
-
-            if override_shots is not False:
-                # Since shots has changed, we need to update the preferred gradient function.
-                # This is because the gradient function chosen at initialization may
-                # no longer be applicable.
-
-                # store the initialization gradient function
-                original_grad_fn = [self.gradient_fn, self.gradient_kwargs, self.device]
-
-                # update the gradient function
-                set_shots(self._original_device, override_shots)(self._update_gradient_fn)()
+        override_shots = kwargs.pop("shots", False) if not self._qfunc_uses_shots_arg else False
 
         # construct the tape
         self.construct(args, kwargs)
@@ -366,7 +306,7 @@ class QNode:
         res = qml.execute(
             [self.tape],
             device=self.device,
-            gradient_fn=self.gradient_fn,
+            gradient_fn=self.diff_method,
             interface=self.interface,
             gradient_kwargs=self.gradient_kwargs,
             override_shots=override_shots,
@@ -386,12 +326,6 @@ class QNode:
             # was applied.
 
             res = res[0]
-
-        if override_shots is not False:
-            # restore the initialization gradient function
-            self.gradient_fn, self.gradient_kwargs, self.device = original_grad_fn
-
-        self._update_original_device()
 
         if isinstance(self._qfunc_output, Sequence) or (
             self.tape.is_sampled and self.device._has_partitioned_shots()

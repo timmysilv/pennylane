@@ -300,3 +300,4 @@ from .general_shift_rules import (
     generate_shift_rule,
     generate_multi_shift_rule,
 )
+from .validate import get_gradient_fn
