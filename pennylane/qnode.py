@@ -26,6 +26,57 @@ import autograd
 import pennylane as qml
 from pennylane import Device
 from pennylane.interfaces.batch import SUPPORTED_INTERFACES, set_shots
+from typing import List, Dict
+
+
+def default_validator(tapes, devices):
+    map = {}
+
+    for dev in devices:
+        supported = []
+        for tape in tapes:
+            if tape.num_wires <= dev.num_wires:
+                supported.append(tape)
+        map[dev] = supported
+
+    return map
+
+
+def default_distributor(tapes: List, devices: List[qml.Device], validation: Dict[qml.Device, List]):
+    distributed = False
+    distribution = {device: [] for device in devices}
+    distribution_positions = {device: [] for device in devices}
+    available_devices = devices.copy()
+
+    while not distributed:
+        for device in available_devices:
+            t = validation[device]
+            if len(t) == 0:
+                available_devices.remove(device)
+            else:
+                tape = t.pop()
+                distribution[device].append(tape)
+                distribution_positions[device].append(tapes.index(tape))
+        if len(available_devices) == 0:
+            distributed = True
+
+    return distribution, distribution_positions
+
+
+def executor(tapes: List, devices: List[qml.Device], **execute_kwargs):
+    validation = default_validator(tapes, devices)
+    distribution, distribution_positions = default_distributor(tapes, devices, validation)
+
+    results = qml.math.empty(len(tapes))
+
+    for device, tapes in distribution.items():
+        res = qml.execute(tapes, device, **execute_kwargs)
+        positions = distribution_positions[device]
+
+        for pos, r in zip(positions, res):
+            results[pos] = r
+
+    return results
 
 
 class QNode:
@@ -283,7 +334,7 @@ class QNode:
                 for a in args
             ]
 
-        self._tape = qml.tape.JacobianTape()
+        self._original_tape = qml.tape.JacobianTape()
 
         with self.tape:
             self._qfunc_output = self.func(*args, **kwargs)
@@ -326,18 +377,24 @@ class QNode:
 
     def __call__(self, *args, **kwargs):
         override_shots = kwargs.pop("shots", False) if not self._qfunc_uses_shots_arg else False
+        execute_fn = kwargs.pop("executor", None) or executor
 
         # construct the tape
         self.construct(args, kwargs)
 
-        res = qml.distribute(
-            self.tapes,
-            devices=self.devices,
+        execute_kwargs = {
+            **dict(
             gradient_fn=self.diff_method,
             interface=self.interface,
             gradient_kwargs=self.gradient_kwargs,
-            override_shots=override_shots,
-            **self.execute_kwargs,
+            override_shots=override_shots,),
+            **self.execute_kwargs
+        }
+
+        res = execute_fn(
+            self.tapes,
+            self.devices,
+            **execute_kwargs
         )
 
         if autograd.isinstance(res, (tuple, list)) and len(res) == 1:
@@ -367,28 +424,3 @@ class QNode:
 qnode = lambda device, **kwargs: functools.partial(QNode, device=device, **kwargs)
 qnode.__doc__ = QNode.__doc__
 qnode.__signature__ = inspect.signature(QNode)
-
-
-
-# def distribute(
-#     tapes,
-#     devices=self.devices,
-#     gradient_fn=self.diff_method,
-#     interface=self.interface,
-#     gradient_kwargs=self.gradient_kwargs,
-#     override_shots=override_shots,
-#     **self.execute_kwargs,
-# )
-
-
-def _validate_tapes(tapes, devices):
-    map = {}
-
-    for dev in devices:
-        supported = []
-        for tape in tapes:
-            if tape.num_wires <= dev.num_wires:
-                supported.append(tape)
-        map[dev] = supported
-
-    return map
