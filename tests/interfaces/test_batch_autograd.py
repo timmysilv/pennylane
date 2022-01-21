@@ -188,11 +188,11 @@ class TestBatchTransformExecution:
         spy = mocker.spy(dev, "batch_transform")
 
         with pytest.raises(AssertionError, match="Hamiltonian must be used with shots=None"):
-            qml.execute([tape], dev, None, device_batch_transform=False)
+            qml.execute([tape], dev, "best", device_batch_transform=False)
 
         spy.assert_not_called()
 
-        res = qml.execute([tape], dev, None, device_batch_transform=True)
+        res = qml.execute([tape], dev, "best", device_batch_transform=True)
         spy.assert_called()
         assert np.allclose(res[0], np.cos(y), atol=0.1)
 

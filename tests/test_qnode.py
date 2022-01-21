@@ -55,23 +55,18 @@ class TestValidation:
         with pytest.raises(qml.QuantumFunctionError, match=expected_error):
             circuit.interface = test_interface
 
-    def test_valid_interface(self):
-        """Test that changing to a valid interface works as expected, and the
-        diff method is updated as required."""
-        torch = pytest.importorskip("torch")
+    def test_specify_interface_and_diff_method(self):
+        """Test that the specified interface and diff method is stored in the QNode"""
         dev = qml.device("default.qubit", wires=1)
 
         @qnode(dev, interface="autograd", diff_method="best")
         def circuit(x):
-            qml.RX(wires=0)
+            qml.RX(x, wires=0)
             return qml.probs(wires=0)
 
-        assert circuit.device.short_name == "default.qubit.autograd"
-        assert circuit.gradient_fn == "backprop"
-
-        circuit.interface = "torch"
-        assert circuit.device.short_name == "default.qubit.torch"
-        assert circuit.gradient_fn == "backprop"
+        assert circuit.device.short_name == "default.qubit"
+        assert circuit.diff_method == "best"
+        assert circuit.interface == "autograd"
 
     def test_invalid_device(self):
         """Test that an exception is raised for an invalid device"""

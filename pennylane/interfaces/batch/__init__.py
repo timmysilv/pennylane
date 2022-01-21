@@ -343,13 +343,18 @@ def execute(
     """
     original_device = device
 
+    if gradient_fn == "device" and gradient_kwargs.get("method", None) is "adjoint_jacobian":
+        gradient_kwargs = gradient_kwargs.copy()
+        del gradient_kwargs["method"]
+        gradient_fn = "adjoint"
+
     if override_shots:
         get_gradient_fn = set_shots(device, override_shots)(qml.gradients.get_gradient_fn)
     else:
         get_gradient_fn = qml.gradients.get_gradient_fn
 
     gradient_fn, gradient_kwargs_, device = get_gradient_fn(device, interface, gradient_fn)
-    gradient_kwargs = {**gradient_kwargs_, **gradient_kwargs}
+    gradient_kwargs = {**gradient_kwargs_, **(gradient_kwargs or {})}
 
     if gradient_fn == "backprop":
         sparse = any(any(isinstance(o, SparseHamiltonian) for o in t.observables) for t in tapes)
@@ -360,7 +365,7 @@ def execute(
             )
 
     if expand_fn == "gradient" and isinstance(gradient_fn, qml.gradients.gradient_transform):
-            tapes = [gradient_fn.expand_fn(tape) for tape in tapes]
+        tapes = [gradient_fn.expand_fn(tape) for tape in tapes]
 
     if device_batch_transform:
         tapes, batch_fn = qml.transforms.map_batch_transform(device.batch_transform, tapes)
@@ -373,8 +378,7 @@ def execute(
 
     batch_execute = set_shots(device, override_shots)(device.batch_execute)
 
-    if expand_fn == "device":
-        expand_fn = lambda tape: device.expand_fn(tape, max_expansion=max_expansion)
+    expand_fn = lambda tape: device.expand_fn(tape, max_expansion=max_expansion)
 
     if gradient_fn is None:
         with qml.tape.Unwrap(*tapes):
@@ -465,14 +469,14 @@ def execute(
     return batch_fn(res)
 
 
-def _update_original_device(device, original_device, num_executions):
+def _update_original_device(device, original_device):
     # FIX: If the qnode swapped the device, increase the num_execution value on the original device.
     # In the long run, we should make sure that the user's device is the one
     # actually run so she has full control. This could be done by changing the class
     # of the user's device before and after executing the tape.
 
     if device is not original_device:
-        original_device._num_executions += num_executions  # pylint: disable=protected-access
+        original_device._num_executions += device._num_executions  # pylint: disable=protected-access
 
         # Update for state vector simulators that have the _pre_rotated_state attribute
         if hasattr(original_device, "_pre_rotated_state"):
