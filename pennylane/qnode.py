@@ -31,16 +31,17 @@ from pennylane.interfaces.batch import SUPPORTED_INTERFACES, set_shots
 class QNode:
     """Represents a quantum node in the hybrid computational graph.
 
-    A *quantum node* contains a :ref:`quantum function <intro_vcirc_qfunc>`
-    (corresponding to a :ref:`variational circuit <glossary_variational_circuit>`)
-    and the computational device it is executed on.
+    A *quantum node* contains a :ref:`quantum function <intro_vcirc_qfunc>`,
+    corresponding to a collection of :ref:`variational circuits <glossary_variational_circuit>`
+    and the computational devices they can be executed on.
 
-    The QNode calls the quantum function to construct a :class:`~.QuantumTape` instance representing
-    the quantum circuit.
+    The QNode calls the quantum function to construct a collection of :class:`~.QuantumTape`
+    instances representing quantum circuits.
 
     Args:
         func (callable): a quantum function
-        device (~.Device): a PennyLane-compatible device
+        device (Device or Sequence[Device]): a PennyLane-compatible device or sequence of unique
+            devices
         interface (str): The interface that will be used for classical backpropagation.
             This affects the types of objects that can be passed to/returned from the QNode:
 
@@ -65,16 +66,16 @@ class QNode:
               and returns NumPy arrays. It does not connect to any
               machine learning library automatically for backpropagation.
 
-        diff_method (str or .gradient_transform): The method of differentiation to use in the created QNode.
-            Can either be a :class:`~.gradient_transform`, which includes all quantum gradient
-            transforms in the :mod:`qml.gradients <.gradients>` module, or a string. The following
-            strings are allowed:
+        diff_method (str or .gradient_transform): The method used to differentiate circuits in
+            the created QNode. Can either be a :class:`~.gradient_transform`, which includes all
+            quantum gradient transforms in the :mod:`qml.gradients <.gradients>` module, or a
+            string. The following strings are allowed:
 
-            * ``"best"``: Best available method. Uses classical backpropagation or the
-              device directly to compute the gradient if supported, otherwise will use
+            * ``"best"``: Best available method. Uses device-based gradients or classical
+              backpropagation for circuits executed on supporting devices, otherwise will use
               the analytic parameter-shift rule where possible with finite-difference as a fallback.
 
-            * ``"device"``: Queries the device directly for the gradient.
+            * ``"device"``: Queries the executing device directly for the gradient.
               Only allowed on devices that provide their own gradient computation.
 
             * ``"backprop"``: Use classical backpropagation. Only allowed on
@@ -110,13 +111,13 @@ class QNode:
 
             The ``gradient`` strategy typically results in a reduction in quantum device evaluations
             required during optimization, at the expense of an increase in classical preprocessing.
-        max_expansion (int): The number of times the internal circuit should be expanded when
+        max_expansion (int): The number of times each circuit should be expanded when
             executed on a device. Expansion occurs when an operation or measurement is not
             supported, and results in a gate decomposition. If any operations in the decomposition
             remain unsupported by the device, another expansion occurs.
         mode (str): Whether the gradients should be computed on the forward
             pass (``forward``) or the backward pass (``backward``). Only applies
-            if the device is queried for the gradient; gradient transform
+            if devices are queried for the gradient; gradient transform
             functions available in ``qml.gradients`` are only supported on the backward
             pass.
         cache (bool or dict or Cache): Whether to cache evaluations. This can result in
@@ -175,10 +176,13 @@ class QNode:
                 f"one of {SUPPORTED_INTERFACES}."
             )
 
-        if not isinstance(device, Device):
-            raise qml.QuantumFunctionError(
-                "Invalid device. Device must be a valid PennyLane device."
-            )
+        self.devices = device if isinstance(device, Sequence) else [device]
+
+        for device in self.devices:
+            if not isinstance(device, Device):
+                raise qml.QuantumFunctionError(
+                    "Invalid device. Device must be a valid PennyLane device."
+                )
 
         if "shots" in inspect.signature(func).parameters:
             warnings.warn(
@@ -193,7 +197,6 @@ class QNode:
 
         # input arguments
         self.func = func
-        self.device = device
         self._interface = interface
         self.diff_method = diff_method
         self.expansion_strategy = expansion_strategy
@@ -216,18 +219,20 @@ class QNode:
             raise ValueError("Invalid expansion strategy")
 
         # internal data attributes
-        self._tape = None
+        self._original_tape = None
+        self._tapes = []
         self._qfunc_output = None
         self.gradient_kwargs = gradient_kwargs
+        self._qnode_transform = None
+        self._processing_fn = None
 
         functools.update_wrapper(self, func)
 
     def __repr__(self):
         """String representation."""
-        detail = "<QNode: wires={}, device='{}', interface='{}', diff_method='{}'>"
+        detail = "<QNode: devices='{}', interface='{}', diff_method='{}'>"
         return detail.format(
-            self.device.num_wires,
-            self.device.short_name,
+            ", ".join(device.short_name for device in self.devices),
             self.interface,
             self.diff_method,
         )
@@ -247,14 +252,26 @@ class QNode:
         self._interface = value
 
     @property
+    def device(self):
+        if len(self.devices) == 1:
+            return self.devices[0]
+        else:
+            raise ValueError("This QNode contains multiple devices.")
+
+    @property
     def tape(self):
         """The quantum tape"""
-        return self._tape
+        return self._original_tape
+
+    @property
+    def tapes(self):
+        """The collection of quantum tapes"""
+        return self._tapes
 
     qtape = tape  # for backwards compatibility
 
-    def construct(self, args, kwargs):
-        """Call the quantum function with a tape context, ensuring the operations get queued."""
+    def construct_original_tape(self, args, kwargs):
+        """Construct the original tape from the input quantum function"""
 
         if self.interface == "autograd":
             # HOTFIX: to maintain backwards compatibility existing PennyLane code and demos, here we treat
@@ -297,15 +314,25 @@ class QNode:
                 if len(obj.wires) != self.device.num_wires:
                     raise qml.QuantumFunctionError(f"Operator {obj.name} must act on all wires")
 
+    def construct(self, args, kwargs):
+        """Construct the collection of quantum tapes in the QNode"""
+        self.construct_original_tape(args, kwargs)
+
+        if self._qnode_transform is not None:
+            self._tapes, self._processing_fn = self._qnode_transform(self._original_tape)
+        else:
+            self._tapes = [self._original_tape]
+            self._processing_fn = lambda x: x[0]
+
     def __call__(self, *args, **kwargs):
         override_shots = kwargs.pop("shots", False) if not self._qfunc_uses_shots_arg else False
 
         # construct the tape
         self.construct(args, kwargs)
 
-        res = qml.execute(
-            [self.tape],
-            device=self.device,
+        res = qml.distribute(
+            self.tapes,
+            devices=self.devices,
             gradient_fn=self.diff_method,
             interface=self.interface,
             gradient_kwargs=self.gradient_kwargs,
@@ -327,6 +354,8 @@ class QNode:
 
             res = res[0]
 
+        res = self._processing_fn(res)
+
         if isinstance(self._qfunc_output, Sequence) or (
             self.tape.is_sampled and self.device._has_partitioned_shots()
         ):
@@ -338,3 +367,28 @@ class QNode:
 qnode = lambda device, **kwargs: functools.partial(QNode, device=device, **kwargs)
 qnode.__doc__ = QNode.__doc__
 qnode.__signature__ = inspect.signature(QNode)
+
+
+
+# def distribute(
+#     tapes,
+#     devices=self.devices,
+#     gradient_fn=self.diff_method,
+#     interface=self.interface,
+#     gradient_kwargs=self.gradient_kwargs,
+#     override_shots=override_shots,
+#     **self.execute_kwargs,
+# )
+
+
+def _validate_tapes(tapes, devices):
+    map = {}
+
+    for dev in devices:
+        supported = []
+        for tape in tapes:
+            if tape.num_wires <= dev.num_wires:
+                supported.append(tape)
+        map[dev] = supported
+
+    return map
