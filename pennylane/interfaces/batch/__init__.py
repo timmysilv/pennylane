@@ -47,7 +47,7 @@ class InterfaceUnsupportedError(NotImplementedError):
 class Tapes(Sequence):
     def __init__(self, tapes, shot_distribution=None):
         self._shot_distribution = shot_distribution
-        self._shot_distribution /= np.sum(shot_distribution)
+        # self._shot_distribution /= np.sum(shot_distribution)
         self.tapes = list(tapes)
 
     @property

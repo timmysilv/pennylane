@@ -308,14 +308,27 @@ def batch_vjp(tapes, dys, gradient_fn, reduction="append", gradient_kwargs=None)
     reshape_info = []
     gradient_tapes = []
     processing_fns = []
+    new_shot_distribution = []
+
+    from pennylane.interfaces.batch import Tapes
+
+    if isinstance(tapes, Tapes):
+        shot_distribution = tapes.shot_distribution
 
     # Loop through the tapes and dys vector
-    for tape, dy in zip(tapes, dys):
+    for i, (tape, dy) in enumerate(zip(tapes, dys)):
         g_tapes, fn = vjp(tape, dy, gradient_fn, gradient_kwargs)
 
         reshape_info.append(len(g_tapes))
         processing_fns.append(fn)
         gradient_tapes.extend(g_tapes)
+
+        if isinstance(tapes, Tapes):
+            sd = shot_distribution[i]
+            new_shot_distribution.extend([sd] * len(g_tapes))
+
+    if new_shot_distribution:
+        gradient_tapes = Tapes(gradient_tapes, new_shot_distribution)
 
     def processing_fn(results, nums=None):
         vjps = []
