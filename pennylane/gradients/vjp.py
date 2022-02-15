@@ -310,6 +310,8 @@ def batch_vjp(tapes, dys, gradient_fn, reduction="append", gradient_kwargs=None)
     processing_fns = []
     new_shot_distribution = []
 
+    distribute_shots = gradient_kwargs.pop("distribute_shots", False)
+
     from pennylane.interfaces.batch import Tapes
 
     if isinstance(tapes, Tapes):
@@ -325,7 +327,11 @@ def batch_vjp(tapes, dys, gradient_fn, reduction="append", gradient_kwargs=None)
 
         if isinstance(tapes, Tapes):
             sd = shot_distribution[i]
-            new_shot_distribution.extend([sd] * len(g_tapes))
+
+            if distribute_shots:
+                new_shot_distribution.extend([sd / len(g_tapes)] * len(g_tapes))
+            else:
+                new_shot_distribution.extend([sd] * len(g_tapes))
 
     if new_shot_distribution:
         gradient_tapes = Tapes(gradient_tapes, new_shot_distribution)
