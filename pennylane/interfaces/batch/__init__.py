@@ -46,8 +46,13 @@ class InterfaceUnsupportedError(NotImplementedError):
 
 class Tapes(Sequence):
     def __init__(self, tapes, shot_distribution=None):
-        self.shot_distribution = shot_distribution
+        self._shot_distribution = shot_distribution
+        self._shot_distribution /= np.sum(shot_distribution)
         self.tapes = list(tapes)
+
+    @property
+    def shot_distribution(self):
+        return self._shot_distribution
 
     def __len__(self):
         return len(self.tapes)
