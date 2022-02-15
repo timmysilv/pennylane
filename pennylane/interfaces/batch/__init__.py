@@ -16,6 +16,7 @@ This subpackage defines functions for interfacing devices' batch execution
 capabilities with different machine learning libraries.
 """
 # pylint: disable=import-outside-toplevel,too-many-arguments,too-many-branches,protected-access
+from collections.abc import Sequence
 import contextlib
 from functools import wraps
 import itertools
@@ -41,6 +42,18 @@ SUPPORTED_INTERFACES = list(itertools.chain(*INTERFACE_NAMES.values()))
 class InterfaceUnsupportedError(NotImplementedError):
     """Exception raised when features not supported by an interface are
     attempted to be used."""
+
+
+class Tapes(Sequence):
+    def __init__(self, tapes, shot_distribution=None):
+        self.shot_distribution = shot_distribution
+        self.tapes = list(tapes)
+
+    def __len__(self):
+        return len(self.tapes)
+
+    def __getitem__(self, idx):
+        return self.tapes[idx]
 
 
 @contextlib.contextmanager
@@ -140,6 +153,7 @@ def cache_execute(fn, cache, pass_kwargs=False, return_tuple=True, expand_fn=Non
         cached_results = {}
         hashes = {}
         repeated = {}
+        shots_distribution = []
 
         for i, tape in enumerate(tapes):
             h = tape.hash
@@ -162,6 +176,9 @@ def cache_execute(fn, cache, pass_kwargs=False, return_tuple=True, expand_fn=Non
                 # for execution via the execution function.
                 execution_tapes[i] = tape
 
+                if isinstance(tapes, Tapes):
+                    shots_distribution.append(tapes.shot_distribution[i])
+
         # if there are no execution tapes, simply return!
         if not execution_tapes:
             if not repeated:
@@ -170,7 +187,10 @@ def cache_execute(fn, cache, pass_kwargs=False, return_tuple=True, expand_fn=Non
 
         else:
             # execute all unique tapes that do not exist in the cache
-            res = fn(execution_tapes.values(), **kwargs)
+            if shots_distribution:
+                res = fn(execution_tapes.values(), shots_distribution=shots_distribution, **kwargs)
+            else:
+                res = fn(execution_tapes.values(), **kwargs)
 
         final_res = []
 

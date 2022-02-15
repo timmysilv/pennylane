@@ -189,7 +189,6 @@ class QubitDevice(Device):
         Returns:
             array[float]: measured value(s)
         """
-
         if self._cache:
             circuit_hash = circuit.graph.hash
             if circuit_hash in self._cache_execute:
@@ -262,7 +261,7 @@ class QubitDevice(Device):
         executions. If set to zero, no caching occurs."""
         return self._cache
 
-    def batch_execute(self, circuits):
+    def batch_execute(self, circuits, shots_distribution=None):
         """Execute a batch of quantum circuits on the device.
 
         The circuits are represented by tapes, and they are executed one-by-one using the
@@ -281,12 +280,18 @@ class QubitDevice(Device):
         # once it has the same signature in the execute() method
 
         results = []
-        for circuit in circuits:
+        for i, circuit in enumerate(circuits):
             # we need to reset the device here, else it will
             # not start the next computation in the zero state
             self.reset()
+            fn = self.execute
 
-            res = self.execute(circuit)
+            from pennylane.interfaces.batch import set_shots
+
+            if shots_distribution is not None:
+                fn = set_shots(self, int(self.shots * shots_distribution[i]))(self.execute)
+
+            res = fn(circuit)
             results.append(res)
 
         if self.tracker.active:

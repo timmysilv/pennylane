@@ -468,8 +468,14 @@ def map_batch_transform(transform, tapes):
     execution_tapes = []
     batch_fns = []
     tape_counts = []
+    new_shot_distribution = []
 
-    for t in tapes:
+    from pennylane.interfaces.batch import Tapes
+
+    if isinstance(tapes, Tapes):
+        shot_distribution = tapes.shot_distribution
+
+    for i, t in enumerate(tapes):
         # Preprocess the tapes by applying batch transforms
         # to each tape, and storing corresponding tapes
         # for execution, processing functions, and list of tape lengths.
@@ -477,6 +483,13 @@ def map_batch_transform(transform, tapes):
         execution_tapes.extend(new_tapes)
         batch_fns.append(fn)
         tape_counts.append(len(new_tapes))
+
+        if isinstance(tapes, Tapes):
+            sd = shot_distribution[i]
+            new_shot_distribution.extend([sd / len(new_tapes)] * len(new_tapes))
+
+    if new_shot_distribution:
+        execution_tapes = Tapes(execution_tapes, new_shot_distribution)
 
     def processing_fn(res):
         count = 0
