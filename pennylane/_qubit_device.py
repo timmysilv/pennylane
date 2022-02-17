@@ -288,8 +288,20 @@ class QubitDevice(Device):
 
             from pennylane.interfaces.batch import set_shots
 
-            if shots_distribution is not None:
-                fn = set_shots(self, int(self.shots * shots_distribution[i]))(self.execute)
+            if self.shots is not None and shots_distribution is not None:
+
+                if self.shot_vector is None:
+                    new_shots = int(self.shots * shots_distribution[i])
+                else:
+                    new_shots = [
+                        (v.shots, int(shots_distribution[i] * v.copies))
+                        if v.copies > 1
+                        else int(v.shots * shots_distribution[i])
+                        for v in self.shot_vector
+                    ]
+
+                print(self.shot_vector, new_shots)
+                fn = set_shots(self, new_shots)(self.execute)
 
             res = fn(circuit)
             results.append(res)
