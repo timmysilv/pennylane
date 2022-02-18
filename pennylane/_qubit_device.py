@@ -300,7 +300,6 @@ class QubitDevice(Device):
                         for v in self.shot_vector
                     ]
 
-                print(self.shot_vector, new_shots)
                 fn = set_shots(self, new_shots)(self.execute)
 
             res = fn(circuit)

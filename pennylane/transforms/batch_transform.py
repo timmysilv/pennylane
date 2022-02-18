@@ -471,6 +471,7 @@ def map_batch_transform(transform, tapes):
     new_shot_distribution = []
 
     from pennylane.interfaces.batch import Tapes
+    import numpy as np
 
     if isinstance(tapes, Tapes):
         shot_distribution = tapes.shot_distribution
@@ -486,7 +487,18 @@ def map_batch_transform(transform, tapes):
 
         if isinstance(tapes, Tapes):
             sd = shot_distribution[i]
-            new_shot_distribution.extend([sd / len(new_tapes)] * len(new_tapes))
+            new_dist = np.full(len(new_tapes), sd)
+
+            if isinstance(new_tapes, Tapes):
+                new_dist = new_dist * new_tapes.shot_distribution
+
+            new_shot_distribution.extend(new_dist)
+
+        elif isinstance(new_tapes, Tapes):
+            new_shot_distribution.extend(new_tapes.shot_distribution)
+
+        elif new_shot_distribution:
+            new_shot_distribution.extend([1] * len(new_tapes))
 
     if new_shot_distribution:
         execution_tapes = Tapes(execution_tapes, new_shot_distribution)

@@ -109,7 +109,7 @@ def _gradient_analysis(tape, use_graph=True):
                 )
 
 
-def expval_param_shift(tape, argnum=None, shift=np.pi / 2, gradient_recipes=None, f0=None):
+def expval_param_shift(tape, argnum=None, shift=np.pi / 2, gradient_recipes=None, f0=None, shots=None):
     r"""Generate the parameter-shift tapes and postprocessing methods required
     to compute the gradient of a gate parameter with respect to an
     expectation value.
@@ -136,11 +136,14 @@ def expval_param_shift(tape, argnum=None, shift=np.pi / 2, gradient_recipes=None
         function to be applied to the results of the evaluated tapes.
     """
     argnum = argnum or tape.trainable_params
+    if gradient_recipes is None:
+        gradient_recipes = [None] * len(argnum)
 
     gradient_tapes = []
     gradient_coeffs = []
     shapes = []
     unshifted_coeffs = []
+    shot_distribution = []
 
     fns = []
 
@@ -194,6 +197,15 @@ def expval_param_shift(tape, argnum=None, shift=np.pi / 2, gradient_recipes=None
         gradient_coeffs.append(coeffs)
         g_tapes = generate_shifted_tapes(tape, idx, shifts, multipliers)
 
+        prob_shots = np.abs(coeffs) / np.sum(np.abs(coeffs))
+
+        if shots is not None:
+            prob_shots = prob_shots * shots[idx]
+
+        prob_shots /= np.sum(prob_shots)
+
+        shot_distribution.extend(prob_shots)
+
         gradient_tapes.extend(g_tapes)
         shapes.append(len(g_tapes))
 
@@ -238,7 +250,7 @@ def expval_param_shift(tape, argnum=None, shift=np.pi / 2, gradient_recipes=None
 
         return qml.math.T(qml.math.stack(grads))
 
-    return gradient_tapes, processing_fn
+    return qml.interfaces.batch.Tapes(gradient_tapes, shot_distribution), processing_fn
 
 
 def var_param_shift(tape, argnum, shift=np.pi / 2, gradient_recipes=None, f0=None):
