@@ -25,7 +25,7 @@ from functools import partial
 from itertools import product
 from typing import Any, Callable, ClassVar, Dict, List, Sequence, Tuple, Union
 
-from networkx import MultiDiGraph, weakly_connected_components, has_path
+from networkx import MultiDiGraph, has_path, weakly_connected_components
 
 import pennylane as qml
 from pennylane import apply, expval
@@ -1332,3 +1332,36 @@ class CutStrategy:
             probed_cuts.append(cut_kwargs)
 
         return probed_cuts
+
+
+def expand_sample_node(graph):
+    """
+    Expands a sample node acting on mutliple wires to mutliple sample nodes
+    acting on individual wires
+    """
+    measure_nodes = [n for n in graph.nodes if isinstance(n, MeasurementProcess)]
+    sample_nodes = [m for m in measure_nodes if m.return_type.name == "Sample"]
+    new_sample_nodes = [qml.sample(wires=w) for sn in sample_nodes for w in sn.wires]
+
+    for node in sample_nodes:
+        # Assume sample measurements are always terminal so only consider predecessors
+        predecessors = graph.pred[node]
+
+        predecessor_on_wire = {}
+        for op, data in predecessors.items():
+            for d in data.values():
+                wire = d["wire"]
+                predecessor_on_wire[wire] = op
+
+        order = graph.nodes[node]["order"]
+        graph.remove_node(node)
+
+        for wire in node.wires:
+            predecessor = predecessor_on_wire.get(wire, None)
+
+            new_sample_meas = qml.sample(wires=wire)
+
+            graph.add_node(new_sample_meas, order=order)
+
+            if predecessor is not None:
+                graph.add_edge(predecessor, new_sample_meas, wire=wire)

@@ -2332,3 +2332,41 @@ class TestCutStrategy:
                 max_wires_by_fragment=max_wires_by_fragment,
                 max_gates_by_fragment=max_gates_by_fragment,
             )
+
+
+class TestExpandSampleNode:
+    """
+    Tests sample nodes are expanded correctly
+    """
+
+    def test_simple_sample(self):
+        """
+        Tests a simple sample node is expanded correctly
+        """
+
+        with qml.tape.QuantumTape() as tape:
+            qml.CNOT(wires=[0, 1])
+            qml.WireCut(wires=1)
+            qml.CNOT(wires=[1, 2])
+            qml.sample(wires=[0, 1, 2])
+
+        g = qml.transforms.tape_to_graph(tape)
+        qml.transforms.replace_wire_cut_nodes(g)
+
+        qcut.expand_sample_node(g)
+
+        expected_nodes = [
+            qml.CNOT(wires=[0, 1]),
+            qml.CNOT(wires=[1, 2]),
+            qcut.MeasureNode(wires=[1]),
+            qcut.PrepareNode(wires=[1]),
+            qml.sample(wires=[0]),
+            qml.sample(wires=[1]),
+            qml.sample(wires=[2]),
+        ]
+
+        nodes = list(g.nodes)
+
+        for node, exp_node in zip(nodes, expected_nodes):
+            assert node.name == exp_node.name
+            assert node.wires.tolist() == exp_node.wires.tolist()
