@@ -2370,3 +2370,44 @@ class TestExpandSampleNode:
         for node, exp_node in zip(nodes, expected_nodes):
             assert node.name == exp_node.name
             assert node.wires.tolist() == exp_node.wires.tolist()
+
+    def test_fragment_after_sample_expand(self):
+        """
+        Test that the graph containing the exapnded sample nodes is correctly
+        fragmented
+        """
+        with qml.tape.QuantumTape() as tape:
+            qml.CNOT(wires=[0, 1])
+            qml.WireCut(wires=1)
+            qml.CNOT(wires=[1, 2])
+            qml.sample(wires=[0, 1, 2])
+
+        g = qml.transforms.tape_to_graph(tape)
+        qml.transforms.replace_wire_cut_nodes(g)
+        qcut.expand_sample_node(g)
+
+        fragments, communication_graph = qml.transforms.fragment_graph(g)
+
+        frag0_exp_nodes = [
+            qcut.MeasureNode(wires=[1]),
+            qml.CNOT(wires=[0, 1]),
+            qml.sample(wires=[0]),
+        ]
+
+        frag1_exp_nodes = [
+            qml.CNOT(wires=[1, 2]),
+            qcut.PrepareNode(wires=[1]),
+            qml.sample(wires=[1]),
+            qml.sample(wires=[2]),
+        ]
+
+        # nodes are being returned in random orders when calling fragments[i].nodes
+        # lazy check of names for now
+        frag0_exp_names = [n.name for n in frag0_exp_nodes]
+        frag1_exp_names = [n.name for n in frag1_exp_nodes]
+
+        for node in list(fragments[0].nodes):
+            assert node.name in frag0_exp_names
+
+        for node in list(fragments[1].nodes):
+            assert node.name in frag1_exp_names
