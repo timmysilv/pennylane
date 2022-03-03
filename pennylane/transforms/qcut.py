@@ -1365,3 +1365,61 @@ def expand_sample_node(graph):
 
             if predecessor is not None:
                 graph.add_edge(predecessor, new_sample_meas, wire=wire)
+
+
+def sample_graph_to_tape(graph):
+    """
+    Converts graphs containing sample nodes to tapes
+    """
+    # This function repeats a lot of logic from `graph_to_tape` but breaks
+    # a few tests if used in place of `graph_to_tape`. This updated logic was written with the
+    # intention of handeling both measurements and should be brought together in future.
+
+    wires = Wires.all_wires([n.wires for n in graph.nodes])
+
+    ordered_ops = sorted(
+        [(order, op) for op, order in graph.nodes(data="order")], key=lambda x: x[0]
+    )
+    wire_map = {w: w for w in wires}
+    reverse_wire_map = {v: k for k, v in wire_map.items()}
+
+    copy_ops = [copy.copy(op) for _, op in ordered_ops if not isinstance(op, MeasurementProcess)]
+    copy_meas = [copy.copy(op) for _, op in ordered_ops if isinstance(op, MeasurementProcess)]
+
+    observables = []
+
+    with QuantumTape() as tape:
+        for op in copy_ops:
+            new_wires = Wires([wire_map[w] for w in op.wires])
+
+            op._wires = new_wires
+            apply(op)
+
+            if isinstance(op, MeasureNode):
+                assert len(op.wires) == 1
+                measured_wire = op.wires[0]
+
+                new_wire = _find_new_wire(wires)
+                wires += new_wire
+
+                original_wire = reverse_wire_map[measured_wire]
+                wire_map[original_wire] = new_wire
+                reverse_wire_map[new_wire] = original_wire
+
+        for meas in copy_meas:
+            obs = meas.obs
+            if obs:
+                obs._wires = Wires([wire_map[w] for w in obs.wires])
+                observables.append(obs)
+
+            meas_names = {"Expectation": "expval", "Sample": "sample"}
+            meas_return_type = meas.return_type.name
+
+            if len(observables) > 1:
+                getattr(qml, meas_names[meas_return_type])(Tensor(*observables))
+            elif len(observables) == 1:
+                getattr(qml, meas_names[meas_return_type])(obs)
+            elif len(observables) == 0:
+                getattr(qml, meas_names[meas_return_type])(wires=meas.wires)
+
+    return tape

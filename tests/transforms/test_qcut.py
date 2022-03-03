@@ -2411,3 +2411,61 @@ class TestExpandSampleNode:
 
         for node in list(fragments[1].nodes):
             assert node.name in frag1_exp_names
+
+
+class TestSampleGraphToTape:
+    """
+    Tests that graphs containing sample nodes can be converted to tapes
+    """
+
+    def test_sample_graph_to_tape(self):
+        """
+        Tests that a subgraphs containing sample nodes are correctly converted
+        to tapes
+        """
+        with qml.tape.QuantumTape() as tape:
+            qml.CNOT(wires=[0, 1])
+            qml.WireCut(wires=1)
+            qml.CNOT(wires=[1, 2])
+            qml.sample(wires=[0, 1, 2])
+
+        g = qml.transforms.tape_to_graph(tape)
+        qml.transforms.replace_wire_cut_nodes(g)
+        qcut.expand_sample_node(g)
+        fragments, communication_graph = qml.transforms.fragment_graph(g)
+
+        fragment_tapes = [qcut.sample_graph_to_tape(f) for f in fragments]
+
+        with qml.tape.QuantumTape() as expected_tape_0:
+            qml.CNOT(wires=[0, 1])
+            qcut.MeasureNode(wires=[1])
+            qml.sample(wires=[0])
+
+        with qml.tape.QuantumTape() as expected_tape_1:
+            qcut.PrepareNode(wires=[1])
+            qml.CNOT(wires=[1, 2])
+            qml.sample(wires=[1])
+            qml.sample(wires=[2])
+
+        expected_tapes = [expected_tape_0, expected_tape_1]
+
+        # The following assertions are copied from the `compare_tapes` helper
+        # function with the measurement observable assertions removed since
+        # this sample instance contains no observables
+        for tape, expected_tape in zip(fragment_tapes, expected_tapes):
+
+            assert set(tape.wires) == set(expected_tape.wires)
+            assert tape.get_parameters() == expected_tape.get_parameters()
+
+            for op, exp_op in zip(tape.operations, expected_tape.operations):
+                if (
+                    op.name == "PrepareNode"
+                ):  # The exact ordering of PrepareNodes w.r.t wires varies on each call
+                    assert exp_op.name == "PrepareNode"
+                else:
+                    assert op.name == exp_op.name
+                    assert op.wires.tolist() == exp_op.wires.tolist()
+
+            for meas, exp_meas in zip(tape.measurements, expected_tape.measurements):
+                assert meas.return_type.name == exp_meas.return_type.name
+                assert meas.wires.tolist() == exp_meas.wires.tolist()
