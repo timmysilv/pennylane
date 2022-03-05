@@ -2469,3 +2469,91 @@ class TestSampleGraphToTape:
             for meas, exp_meas in zip(tape.measurements, expected_tape.measurements):
                 assert meas.return_type.name == exp_meas.return_type.name
                 assert meas.wires.tolist() == exp_meas.wires.tolist()
+
+
+def compare_operators(operators, expected_operators):
+    """
+    Helper function to compare operators
+    """
+    for operator, expected_operator in zip(operators, expected_operators):
+        assert operator.name == expected_operator.name
+        assert operator.wires == expected_operator.wires
+
+
+def compare_measurements(measurements, expected_measurements):
+    """
+    Helper function to compare measurement
+    """
+    for measurement, expected_measurement in zip(measurements, expected_measurements):
+        assert measurement.return_type == expected_measurement.return_type
+        assert measurement.wires == expected_measurement.wires
+
+
+class TestRandomConfgurations:
+    """
+    Tests that the random configurations of fragment tapes are generated correctly
+    """
+
+    def test_random_configurations(self):
+        """
+        Tests that random configurations of fragment tapes containing simple
+        sample measurements are generated correctly
+        """
+        with qml.tape.QuantumTape() as tape:
+            qml.CNOT(wires=[0, 1])
+            qml.WireCut(wires=1)
+            qml.CNOT(wires=[1, 2])
+            qml.sample(wires=[0, 1, 2])
+
+        g = qml.transforms.tape_to_graph(tape)
+        qml.transforms.replace_wire_cut_nodes(g)
+        qcut.expand_sample_node(g)
+        fragments, communication_graph = qml.transforms.fragment_graph(g)
+        fragment_tapes = [qcut.sample_graph_to_tape(f) for f in fragments]
+
+        n_samples = 5
+        configurations = qcut.random_configurations(fragment_tapes, n_samples=n_samples)
+
+        assert len(configurations) == n_samples
+
+        pauli_names = ["Identity", "PauliX", "PauliY", "PauliZ"]
+        state_prep_names = ["Identity", "PauliX", "Hadamard", "PhaseShift", "S"]
+
+        exp_frag0_op = [qml.CNOT(wires=[0, 1])]
+        exp_frag0_meas = [qml.sample(wires=[0])]
+        exp_frag1_ops = [qml.CNOT(wires=[1, 2])]
+        exp_frag1_meas = [qml.sample(wires=[1]), qml.sample(wires=[2])]
+
+        all_generated_measurements = []
+        all_generated_state_preps = []
+        for fragments in configurations:
+            frag0_op = fragments[0].operations
+            frag0_meas = fragments[0].measurements
+            compare_operators(frag0_op, exp_frag0_op)
+            compare_measurements(frag0_meas, exp_frag0_meas)
+
+            random_meas = fragments[0].operations[1]
+            all_generated_measurements.append(random_meas.name)
+            assert random_meas.name in pauli_names
+            assert random_meas.wires == Wires([1])
+
+            frag1_ops = fragments[1].operations[-1]
+            frag1_meas = fragments[1].measurements
+            compare_operators([frag1_ops], exp_frag1_ops)
+            compare_measurements(frag1_meas, exp_frag1_meas)
+
+            random_state_preps = fragments[1].operations[:-1]
+            random_state_preps_names = []
+            for prep_op in random_state_preps:
+                assert prep_op.name in state_prep_names
+                assert prep_op.wires == Wires([1])
+                random_state_preps_names.append(prep_op.name)
+
+            all_generated_state_preps.append(random_state_preps_names)
+
+        assert all_generated_measurements.count(all_generated_measurements[0]) != len(
+            all_generated_measurements
+        )
+        assert random_state_preps_names.count(random_state_preps_names[0]) != len(
+            random_state_preps_names
+        )

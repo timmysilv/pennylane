@@ -17,6 +17,7 @@ circuits to be distributed across multiple devices.
 """
 
 import copy
+import random
 import string
 import uuid
 import warnings
@@ -1423,3 +1424,98 @@ def sample_graph_to_tape(graph):
                 getattr(qml, meas_names[meas_return_type])(wires=meas.wires)
 
     return tape
+
+
+def _prep_Iplus_state(wire):
+    qml.Identity(wire)
+
+
+def _prep_Iminus_state(wire):
+    qml.PauliX(wire)
+
+
+def _prep_Zplus_state(wire):
+    qml.Identity(wire)
+
+
+def _prep_Zminus_state(wire):
+    qml.PauliX(wire)
+
+
+def _prep_Xplus_state(wire):
+    qml.Hadamard(wire)
+
+
+def _prep_Xminus_state(wire):
+    qml.Hadamard(wire)
+    qml.PhaseShift(qml.math.pi, wire)
+
+
+def _prep_Yplus_state(wire):
+    qml.Hadamard(wire)
+    qml.S(wires=wire)
+
+
+def _prep_Yminus_state(wire):
+    qml.Hadamard(wire)
+    qml.PhaseShift(-qml.math.pi / 2, wire)
+
+
+PREPARE_STATES = [
+    _prep_Iplus_state,
+    _prep_Iminus_state,
+    _prep_Xplus_state,
+    _prep_Xminus_state,
+    _prep_Yplus_state,
+    _prep_Yminus_state,
+    _prep_Zplus_state,
+    _prep_Zminus_state,
+]
+
+
+def _identity(wire):
+    qml.Identity(wires=wire)
+
+
+def _pauliX(wire):
+    qml.PauliX(wires=wire)
+
+
+def _pauliY(wire):
+    qml.PauliY(wires=wire)
+
+
+def _pauliZ(wire):
+    qml.PauliZ(wires=wire)
+
+
+PAULIS = [_identity, _pauliX, _pauliY, _pauliZ]
+
+
+def random_configurations(fragment_tapes, n_samples=1):
+    """
+    Generates random configurations for a given sequence if fragment tapes.
+    """
+    all_configs = []
+    for _ in range(n_samples):
+        tapes = []
+        for fragment in fragment_tapes:
+            with QuantumTape() as tape_config:
+
+                for op in fragment.operations:
+                    w = op.wires[0]
+                    if isinstance(op, PrepareNode):
+                        random.choice(PREPARE_STATES)(w)
+                    elif not isinstance(op, MeasureNode):
+                        apply(op)
+                    elif isinstance(op, MeasureNode):
+                        random.choice(PAULIS)(w)
+
+                for meas in fragment.measurements:
+                    apply(meas)
+
+                tapes.append(tape_config)
+
+        all_configs.append(tapes)
+
+    return all_configs
