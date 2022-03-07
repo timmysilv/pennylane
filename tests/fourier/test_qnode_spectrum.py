@@ -391,7 +391,7 @@ expected_result = {
     }
 }
 
-
+@pytest.mark.autograd
 class TestAutograd:
     def test_integration_autograd(self):
         """Test that the spectra of a circuit is calculated correctly
@@ -417,6 +417,7 @@ class TestAutograd:
             qnode_spectrum(qnode)(*args)
 
 
+@pytest.mark.torch
 class TestTorch:
     def test_integration_torch(self):
         """Test that the spectra of a circuit is calculated correctly
@@ -445,6 +446,7 @@ class TestTorch:
             qnode_spectrum(qnode)(*args)
 
 
+@pytest.mark.tf
 class TestTensorflow:
     def test_integration_tf(self):
         """Test that the spectra of a circuit is calculated correctly
@@ -473,6 +475,7 @@ class TestTensorflow:
             qnode_spectrum(qnode)(*args)
 
 
+@pytest.mark.jax
 class TestJax:
     def test_integration_jax(self):
         """Test that the spectra of a circuit is calculated correctly

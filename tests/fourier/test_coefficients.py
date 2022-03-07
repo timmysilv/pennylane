@@ -285,6 +285,7 @@ class TestInterfaces:
         ]
     )
 
+    @pytest.mark.tf
     def test_coefficients_tf_interface(self):
         """Test that coefficients are correctly computed when using the Tensorflow interface."""
         tf = pytest.importorskip("tensorflow")
@@ -296,6 +297,7 @@ class TestInterfaces:
 
         assert np.allclose(obtained_result, self.expected_result)
 
+    @pytest.mark.torch
     def test_coefficients_torch_interface(self):
         """Test that coefficients are correctly computed when using the PyTorch interface."""
         torch = pytest.importorskip("torch")
@@ -307,6 +309,7 @@ class TestInterfaces:
 
         assert np.allclose(obtained_result, self.expected_result)
 
+    @pytest.mark.jax
     def test_coefficients_jax_interface(self):
         """Test that coefficients are correctly computed when using the JAX interface."""
         jax = pytest.importorskip("jax")

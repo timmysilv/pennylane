@@ -126,6 +126,7 @@ class TestInterfaces:
     """Test that inputs are correctly identified and spectra computed in
     all interfaces."""
 
+    @pytest.mark.autograd
     def test_integration_autograd(self):
         """Test that the spectra of a circuit is calculated correctly
         in the autograd interface."""
@@ -141,6 +142,7 @@ class TestInterfaces:
             assert k1 == k2
             assert v1 == v2
 
+    @pytest.mark.torch
     def test_integration_torch(self):
         """Test that the spectra of a circuit is calculated correctly
         in the torch interface."""
@@ -158,6 +160,7 @@ class TestInterfaces:
             assert k1 == k2
             assert v1 == v2
 
+    @pytest.mark.tf
     def test_integration_tf(self):
         """Test that the spectra of a circuit is calculated correctly
         in the tf interface."""
@@ -175,6 +178,7 @@ class TestInterfaces:
             assert k1 == k2
             assert v1 == v2
 
+    @pytest.mark.jax
     def test_integration_jax(self):
         """Test that the spectra of a circuit is calculated correctly
         in the jax interface."""

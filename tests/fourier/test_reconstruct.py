@@ -164,6 +164,7 @@ class TestReconstructEqu:
         assert spy.call_count == num_frequency * 2
         assert fun_close(fun, rec)
 
+    @pytest.mark.autograd
     @pytest.mark.parametrize(
         "fun, num_frequency, base_f, expected_grad",
         zip(c_funs, nums_frequency, base_frequencies, expected_grads),
@@ -182,6 +183,7 @@ class TestReconstructEqu:
         assert fun_close(fun, rec, zero=pnp.array(0.0, requires_grad=True))
         assert fun_close(expected_grad, grad, zero=pnp.array(0.0, requires_grad=True))
 
+    @pytest.mark.jax
     @pytest.mark.parametrize(
         "fun, num_frequency, base_f, expected_grad",
         zip(c_funs, nums_frequency, base_frequencies, expected_grads),
@@ -203,6 +205,7 @@ class TestReconstructEqu:
         assert fun_close(fun, rec, zero=jax.numpy.array(0.0))
         assert fun_close(expected_grad, grad, zero=jax.numpy.array(0.0))
 
+    @pytest.mark.tf
     @pytest.mark.parametrize(
         "fun, num_frequency, base_f, expected_grad",
         zip(c_funs, nums_frequency, base_frequencies, expected_grads),
@@ -228,6 +231,7 @@ class TestReconstructEqu:
         assert fun_close(fun, rec, zero=tf.Variable(0.0, dtype=tf.float64))
         assert fun_close(expected_grad, grad, zero=tf.Variable(0.0, dtype=tf.float64))
 
+    @pytest.mark.torch
     @pytest.mark.parametrize(
         "fun, num_frequency, base_f, expected_grad",
         zip(c_funs, nums_frequency, base_frequencies, expected_grads),
@@ -394,6 +398,7 @@ class TestReconstructGen:
             assert recwarn[0].message.args[0].startswith("The provided value")
         assert fun_close(fun, rec)
 
+    @pytest.mark.autograd
     @pytest.mark.parametrize(
         "fun, spectrum, expected_grad",
         zip(c_funs, spectra, expected_grads),
@@ -407,6 +412,7 @@ class TestReconstructGen:
         assert fun_close(fun, rec, zero=pnp.array(0.0, requires_grad=True))
         assert fun_close(expected_grad, grad, zero=pnp.array(0.0, requires_grad=True))
 
+    @pytest.mark.jax
     @pytest.mark.parametrize(
         "fun, spectrum, expected_grad",
         zip(c_funs, spectra, expected_grads),
@@ -424,6 +430,7 @@ class TestReconstructGen:
         assert fun_close(fun, rec, zero=jax.numpy.array(0.0))
         assert fun_close(expected_grad, grad, zero=jax.numpy.array(0.0))
 
+    @pytest.mark.tf
     @pytest.mark.parametrize(
         "fun, spectrum, expected_grad",
         zip(c_funs, spectra, expected_grads),
@@ -445,6 +452,7 @@ class TestReconstructGen:
         assert fun_close(fun, rec, zero=tf.Variable(0.0))
         assert fun_close(expected_grad, grad, zero=tf.Variable(0.0))
 
+    @pytest.mark.torch
     @pytest.mark.parametrize(
         "fun, spectrum, expected_grad",
         zip(c_funs, spectra, expected_grads),
@@ -851,6 +859,7 @@ class TestReconstruct:
                 assert np.isclose(rec(x0 + 0.1), univariate(x0 + 0.1))
                 assert fun_close(rec, univariate, 10)
 
+    @pytest.mark.autograd
     @pytest.mark.parametrize(
         "qnode, params, ids, nums_frequency, spectra, shifts, exp_calls",
         test_cases_qnodes,
@@ -899,6 +908,7 @@ class TestReconstruct:
                 )
                 assert fun_close(grad, exp_grad, pnp.array(10, requires_grad=True))
 
+    @pytest.mark.jax
     @pytest.mark.parametrize(
         "qnode, params, ids, nums_frequency, spectra, shifts, exp_calls",
         test_cases_qnodes,
@@ -943,6 +953,7 @@ class TestReconstruct:
                 assert np.isclose(grad(x0 + 0.1), exp_grad(x0 + 0.1))
                 assert fun_close(grad, exp_grad, 10)
 
+    @pytest.mark.tf
     @pytest.mark.parametrize(
         "qnode, params, ids, nums_frequency, spectra, shifts, exp_calls",
         test_cases_qnodes,
@@ -1020,6 +1031,7 @@ class TestReconstruct:
                 assert np.isclose(grad(x0 + 0.1), exp_grad(x0 + 0.1))
                 assert fun_close(grad, exp_grad, 10)
 
+    @pytest.mark.torch
     @pytest.mark.parametrize(
         "qnode, params, ids, nums_frequency, spectra, shifts, exp_calls",
         test_cases_qnodes,
