@@ -30,6 +30,7 @@ from networkx import MultiDiGraph, has_path, weakly_connected_components
 
 import pennylane as qml
 from pennylane import apply, expval
+from pennylane import numpy as np
 from pennylane.grouping import string_to_pauli_word
 from pennylane.measurements import MeasurementProcess
 from pennylane.operation import Expectation, Operation, Operator, Tensor
@@ -1448,7 +1449,7 @@ def _prep_Xplus_state(wire):
 
 def _prep_Xminus_state(wire):
     qml.Hadamard(wire)
-    qml.PhaseShift(qml.math.pi, wire)
+    qml.PhaseShift(np.pi, wire)
 
 
 def _prep_Yplus_state(wire):
@@ -1458,7 +1459,7 @@ def _prep_Yplus_state(wire):
 
 def _prep_Yminus_state(wire):
     qml.Hadamard(wire)
-    qml.PhaseShift(-qml.math.pi / 2, wire)
+    qml.PhaseShift(-np.pi / 2, wire)
 
 
 PREPARE_STATES = [
