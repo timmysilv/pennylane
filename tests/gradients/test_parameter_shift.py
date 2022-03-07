@@ -52,7 +52,7 @@ class TestGradAnalysis:
             qml.CNOT(wires=[0, 1])
             qml.probs(wires=[0, 1])
 
-        spy = mocker.spy(tape, "_grad_method")
+        spy = mocker.spy(qml.operation, "has_grad_method")
         _gradient_analysis(tape)
         spy.assert_called()
 
@@ -60,7 +60,7 @@ class TestGradAnalysis:
         assert tape._par_info[1]["grad_method"] == "A"
         assert tape._par_info[2]["grad_method"] == "A"
 
-        spy = mocker.spy(tape, "_grad_method")
+        spy = mocker.spy(qml.operation, "has_grad_method")
         _gradient_analysis(tape)
         spy.assert_not_called()
 
@@ -239,7 +239,7 @@ class TestParamShift:
         assert res.size == 0
         assert np.all(res == np.array([[]]))
 
-    def test_y0(self, mocker):
+    def test_y0(self):
         """Test that if the gradient recipe has a zero-shift component, then
         the tape is executed only once using the current parameter
         values."""
@@ -256,7 +256,7 @@ class TestParamShift:
         # one tape per parameter, plus one global call
         assert len(tapes) == tape.num_params + 1
 
-    def test_y0_provided(self, mocker):
+    def test_y0_provided(self):
         """Test that if the original tape output is provided, then
         the tape is executed only once using the current parameter
         values."""
@@ -305,10 +305,16 @@ class TestParamShift:
         assert np.allclose(j1, [exp, 0])
         assert np.allclose(j2, [0, exp])
 
-    def test_grad_recipe_parameter_dependent(self):
+    def test_grad_recipe_parameter_dependent(self, monkeypatch):
         """Test that an operation with a gradient recipe that depends on
         its instantiated parameter values works correctly within the parameter
-        shift rule"""
+        shift rule. Also tests that grad_recipes supersedes paramter_frequencies.
+        """
+
+        def fail(*args, **kwargs):
+            raise qml.operation.ParameterFrequenciesUndefinedError
+
+        monkeypatch.setattr(qml.RX, "parameter_frequencies", fail)
 
         class RX(qml.RX):
             @property
@@ -335,6 +341,39 @@ class TestParamShift:
         grad = fn(dev.batch_execute(tapes))
         assert np.allclose(grad, -np.sin(x))
 
+    def test_error_no_diff_info(self):
+        """Test that an error is raised if no grad_recipe, no parameter_frequencies
+        and no generator are found."""
+
+        class RX(qml.RX):
+            """This copy of RX overwrites parameter_frequencies to report
+            missing information, disabling its differentiation."""
+
+            @property
+            def parameter_frequencies(self):
+                raise qml.operation.ParameterFrequenciesUndefinedError
+
+        class NewOp(qml.operation.Operation):
+            """This new operation does not overwrite parameter_frequencies
+            but does not have a generator, disabling its differentiation."""
+
+            num_params = 1
+            grad_method = "A"
+            num_wires = 1
+
+        x = np.array(0.654, requires_grad=True)
+        dev = qml.device("default.qubit", wires=2)
+
+        for op in [RX, NewOp]:
+            with qml.tape.JacobianTape() as tape:
+                op(x, wires=0)
+                qml.expval(qml.PauliZ(0))
+
+            with pytest.raises(
+                qml.operation.OperatorPropertyUndefined, match="does not have a grad_recipe"
+            ):
+                qml.gradients.param_shift(tape)
+
 
 class TestParameterShiftRule:
     """Tests for the parameter shift implementation"""
@@ -354,7 +393,7 @@ class TestParameterShiftRule:
 
         tape.trainable_params = {1}
 
-        tapes, fn = qml.gradients.param_shift(tape, shift=shift)
+        tapes, fn = qml.gradients.param_shift(tape, shifts=[(shift,)])
         assert len(tapes) == 2
 
         autograd_val = fn(dev.batch_execute(tapes))
@@ -364,7 +403,7 @@ class TestParameterShiftRule:
         ) / 2
         assert np.allclose(autograd_val, manualgrad_val, atol=tol, rtol=0)
 
-        assert spy.call_args[1]["shift"] == shift
+        assert spy.call_args[1]["shifts"] == (shift,)
 
         # compare to finite differences
         tapes, fn = qml.gradients.finite_diff(tape)
@@ -386,7 +425,7 @@ class TestParameterShiftRule:
 
         tape.trainable_params = {1, 2, 3}
 
-        tapes, fn = qml.gradients.param_shift(tape, shift=shift)
+        tapes, fn = qml.gradients.param_shift(tape, shifts=[(shift,)] * 3)
         assert len(tapes) == 2 * len(tape.trainable_params)
 
         autograd_val = fn(dev.batch_execute(tapes))
@@ -402,7 +441,7 @@ class TestParameterShiftRule:
             manualgrad_val[0, idx] = (forward - backward) / 2
 
         assert np.allclose(autograd_val, manualgrad_val, atol=tol, rtol=0)
-        assert spy.call_args[1]["shift"] == shift
+        assert spy.call_args[1]["shifts"] == (shift,)
 
         # compare to finite differences
         tapes, fn = qml.gradients.finite_diff(tape)

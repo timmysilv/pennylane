@@ -50,6 +50,8 @@ containing quantum operations) that are used to construct QNodes.
 
     ~adjoint
     ~ctrl
+    ~transforms.cond
+    ~defer_measurements
     ~apply_controlled_Q
     ~quantum_monte_carlo
     ~transforms.insert
@@ -81,9 +83,27 @@ both transforms, and decompositions within the larger PennyLane codebase.
     ~transforms.zyz_decomposition
     ~transforms.two_qubit_decomposition
     ~transforms.set_decomposition
+    ~transforms.simplify
+
+There are also utility functions that take a circuit and return a DAG.
+
+.. autosummary::
+    :toctree: api
+
+    ~transforms.commutation_dag
+    ~transforms.CommutationDAG
+    ~transforms.CommutationDAGNode
 
 Transforms for circuit cutting
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This transform accepts QNodes, performs circuit cutting, and returns the result of the original
+uncut circuit.
+
+.. autosummary::
+    :toctree: api
+
+    ~transforms.cut_circuit
 
 The following are utility functions that compose the circuit cutting transform.
 
@@ -95,7 +115,11 @@ The following are utility functions that compose the circuit cutting transform.
     ~transforms.replace_wire_cut_nodes
     ~transforms.fragment_graph
     ~transforms.graph_to_tape
+    ~transforms.expand_fragment_tapes
     ~transforms.contract_tensors
+    ~transforms.qcut_processing_fn
+    ~transforms.remap_tape_wires
+    ~transforms.CutStrategy
 
 Transforms that act on tapes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -121,6 +145,7 @@ to help build custom QNode, quantum function, and tape transforms:
     ~single_tape_transform
     ~batch_transform
     ~qfunc_transform
+    ~op_transform
     ~transforms.make_tape
     ~transforms.map_batch_transform
     ~transforms.create_expand_fn
@@ -133,12 +158,15 @@ to help build custom QNode, quantum function, and tape transforms:
 # Import the decorators first to prevent circular imports when used in other transforms
 from .batch_transform import batch_transform, map_batch_transform
 from .qfunc_transforms import make_tape, single_tape_transform, qfunc_transform
+from .op_transforms import op_transform
 from .adjoint import adjoint
 from .batch_params import batch_params
 from .classical_jacobian import classical_jacobian
+from .condition import cond, Conditional
 from .compile import compile
 from .control import ControlledOperation, ctrl
 from .decompositions import zyz_decomposition, two_qubit_decomposition
+from .defer_measurements import defer_measurements
 from .draw import draw, draw_mpl, draw_old
 from .hamiltonian_expand import hamiltonian_expand
 from .measurement_grouping import measurement_grouping
@@ -159,6 +187,13 @@ from .specs import specs
 from .qmc import apply_controlled_Q, quantum_monte_carlo
 from .unitary_to_rot import unitary_to_rot
 from .get_unitary_matrix import get_unitary_matrix
+from .commutation_dag import (
+    commutation_dag,
+    is_commuting,
+    CommutationDAG,
+    CommutationDAGNode,
+    simplify,
+)
 from .tape_expand import (
     expand_invalid_trainable,
     expand_multipar,
@@ -174,5 +209,10 @@ from .qcut import (
     replace_wire_cut_nodes,
     fragment_graph,
     graph_to_tape,
+    expand_fragment_tapes,
     contract_tensors,
+    qcut_processing_fn,
+    cut_circuit,
+    remap_tape_wires,
+    CutStrategy,
 )
