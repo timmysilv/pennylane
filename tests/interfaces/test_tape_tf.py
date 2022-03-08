@@ -23,6 +23,8 @@ from pennylane.tape import JacobianTape
 from pennylane.interfaces.tf import TFInterface
 
 
+pytestmark = pytest.mark.tf
+
 class TestTFQuantumTape:
     """Test the TensorFlow interface applied to a tape"""
 

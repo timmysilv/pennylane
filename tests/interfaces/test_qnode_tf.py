@@ -22,6 +22,7 @@ import pennylane as qml
 from pennylane.qnode_old import qnode, QNode
 from pennylane.tape import JacobianTape
 
+pytestmark = pytest.mark.tf
 
 @pytest.mark.parametrize(
     "dev_name,diff_method",

@@ -938,6 +938,7 @@ class TestParameterShiftRule:
 class TestParamShiftGradients:
     """Test that the transform is differentiable"""
 
+    @pytest.mark.autograd
     def test_autograd(self, tol):
         """Tests that the output of the parameter-shift transform
         can be differentiated using autograd, yielding second derivatives."""
@@ -966,6 +967,7 @@ class TestParamShiftGradients:
         )
         assert np.allclose(res, expected, atol=tol, rtol=0)
 
+    @pytest.mark.tf
     @pytest.mark.slow
     def test_tf(self, tol):
         """Tests that the output of the finite-difference transform
@@ -1000,6 +1002,7 @@ class TestParamShiftGradients:
         )
         assert np.allclose(res, expected, atol=tol, rtol=0)
 
+    @pytest.mark.torch
     def test_torch(self, tol):
         """Tests that the output of the finite-difference transform
         can be differentiated using Torch, yielding second derivatives."""
@@ -1028,6 +1031,7 @@ class TestParamShiftGradients:
         expected = np.array([2 * np.cos(2 * x) * np.sin(y) ** 2, np.sin(2 * x) * np.sin(2 * y)])
         assert np.allclose(hess.detach().numpy(), expected, atol=0.1, rtol=0)
 
+    @pytest.mark.jax
     def test_jax(self, tol):
         """Tests that the output of the finite-difference transform
         can be differentiated using JAX, yielding second derivatives."""
@@ -1260,6 +1264,7 @@ class TestHamiltonianExpvalGradients:
             [-d * np.sin(x), 0, 0, 0, 0, np.cos(x)],
         ]
 
+    @pytest.mark.autograd
     def test_autograd(self, tol):
         """Test gradient of multiple trainable Hamiltonian coefficients
         using autograd"""
@@ -1277,6 +1282,7 @@ class TestHamiltonianExpvalGradients:
         assert np.allclose(res[1][:, 2:5], np.zeros([2, 3, 3]), atol=tol, rtol=0)
         assert np.allclose(res[2][:, -1], np.zeros([2, 1, 1]), atol=tol, rtol=0)
 
+    @pytest.mark.tf
     @pytest.mark.slow
     def test_tf(self, tol):
         """Test gradient of multiple trainable Hamiltonian coefficients
@@ -1300,6 +1306,7 @@ class TestHamiltonianExpvalGradients:
         assert np.allclose(hess[0][:, 2:5], np.zeros([2, 3, 3]), atol=tol, rtol=0)
         assert np.allclose(hess[1][:, -1], np.zeros([2, 1, 1]), atol=tol, rtol=0)
 
+    @pytest.mark.torch
     def test_torch(self, tol):
         """Test gradient of multiple trainable Hamiltonian coefficients
         using torch"""
@@ -1324,6 +1331,7 @@ class TestHamiltonianExpvalGradients:
         assert np.allclose(hess[1][:, 2:5], np.zeros([2, 3, 3]), atol=tol, rtol=0)
         assert np.allclose(hess[2][:, -1], np.zeros([2, 1, 1]), atol=tol, rtol=0)
 
+    @pytest.mark.jax
     @pytest.mark.slow
     def test_jax(self, tol):
         """Test gradient of multiple trainable Hamiltonian coefficients

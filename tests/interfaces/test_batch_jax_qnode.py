@@ -21,6 +21,8 @@ from pennylane import qnode, QNode
 from pennylane.tape import JacobianTape
 from pennylane.interfaces.batch import InterfaceUnsupportedError
 
+pytestmark = pytest.mark.jax
+
 qubit_device_and_diff_method = [
     ["default.qubit", "backprop", "forward", "jax"],
     # Python

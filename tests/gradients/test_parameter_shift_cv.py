@@ -999,6 +999,7 @@ class TestVarianceQuantumGradients:
 class TestParamShiftInterfaces:
     """Test that the transform is differentiable"""
 
+    @pytest.mark.autograd
     def test_autograd_gradient(self, tol):
         """Tests that the output of the parameter-shift CV transform
         can be differentiated using autograd, yielding second derivatives."""
@@ -1024,6 +1025,7 @@ class TestParamShiftInterfaces:
         )
         assert np.allclose(grad, expected, atol=tol, rtol=0)
 
+    @pytest.mark.tf
     def test_tf(self, tol):
         """Tests that the output of the parameter-shift CV transform
         can be executed using TF"""
@@ -1063,6 +1065,7 @@ class TestParamShiftInterfaces:
         )
         assert np.allclose(grad, expected, atol=tol, rtol=0)
 
+    @pytest.mark.torch
     def test_torch(self, tol):
         """Tests that the output of the parameter-shift CV transform
         can be executed using Torch."""
@@ -1100,6 +1103,7 @@ class TestParamShiftInterfaces:
         )
         assert np.allclose(hess.detach().numpy(), expected, atol=0.1, rtol=0)
 
+    @pytest.mark.jax
     def test_jax(self, tol):
         """Tests that the output of the parameter-shift CV transform
         can be differentiated using JAX, yielding second derivatives."""

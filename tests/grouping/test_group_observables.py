@@ -316,6 +316,7 @@ class TestGroupObservables:
 class TestDifferentiable:
     """Tests that grouping observables is differentiable with respect to the coefficients."""
 
+    @pytest.mark.autograd
     def test_differentiation_autograd(self, tol):
         """Test that grouping is differentiable with autograd tensors as coefficient"""
         coeffs = pnp.array([1.0, 2.0, 3.0], requires_grad=True)
@@ -331,6 +332,7 @@ class TestDifferentiable:
         )
         assert pnp.allclose(jac_fn(coeffs, select=1), pnp.array([[0.0, 0.0, 1.0]]), atol=tol)
 
+    @pytest.mark.jax
     def test_differentiation_jax(self, tol):
         """Test that grouping is differentiable with jax tensors as coefficient"""
         jax = pytest.importorskip("jax")
@@ -348,6 +350,7 @@ class TestDifferentiable:
         )
         assert np.allclose(jac_fn(coeffs, select=1), pnp.array([[0.0, 0.0, 1.0]]), atol=tol)
 
+    @pytest.mark.torch
     def test_differentiation_torch(self, tol):
         """Test that grouping is differentiable with torch tensors as coefficient"""
         torch = pytest.importorskip("torch")
@@ -373,6 +376,7 @@ class TestDifferentiable:
         res.backward()
         assert np.allclose(coeffs.grad, [0.0, 0.0, 1.0], atol=tol)
 
+    @pytest.mark.tf
     def test_differentiation_tf(self, tol):
         """Test that grouping is differentiable with tf tensors as coefficient"""
         tf = pytest.importorskip("tf")

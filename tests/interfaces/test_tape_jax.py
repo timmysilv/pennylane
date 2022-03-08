@@ -23,6 +23,8 @@ from pennylane.tape import JacobianTape
 from pennylane.interfaces.jax import JAXInterface
 
 
+pytestmark = pytest.mark.jax
+
 class TestJAXQuantumTape:
     """Test the JAX interface applied to a tape"""
 

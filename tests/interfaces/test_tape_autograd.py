@@ -20,6 +20,9 @@ from pennylane.tape import JacobianTape
 from pennylane.interfaces.autograd import AutogradInterface
 
 
+pytestmark = pytest.mark.autograd
+
+
 class TestAutogradQuantumTape:
     """Test the autograd interface applied to a tape"""
 

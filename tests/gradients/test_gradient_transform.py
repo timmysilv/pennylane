@@ -482,6 +482,7 @@ class TestInterfaceIntegration:
     """Test that the gradient transforms are differentiable
     using each interface"""
 
+    @pytest.mark.autograd
     def test_autograd(self, tol):
         """Test that a gradient transform remains differentiable
         with autograd"""
@@ -504,6 +505,7 @@ class TestInterfaceIntegration:
         expected = -2 * (4 * x**2 * np.cos(2 * x**2) + np.sin(2 * x**2))
         assert np.allclose(res, expected, atol=tol, rtol=0)
 
+    @pytest.mark.tf
     def test_tf(self, tol):
         """Test that a gradient transform remains differentiable
         with TF"""
@@ -554,6 +556,7 @@ class TestInterfaceIntegration:
         expected = -2 * np.cos(2 * x_)
         assert np.allclose(x.grad.detach(), expected, atol=tol, rtol=0)
 
+    @pytest.mark.jax
     def test_jax(self, tol):
         """Test that a gradient transform remains differentiable
         with JAX"""

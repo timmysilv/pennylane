@@ -23,6 +23,8 @@ from pennylane.tape import JacobianTape
 from pennylane.interfaces.torch import TorchInterface
 
 
+pytestmark = pytest.mark.torch
+
 class TestTorchQuantumTape:
     """Test the Torch interface applied to a tape"""
 

@@ -22,6 +22,7 @@ import pennylane as qml
 from pennylane import qnode, QNode
 from pennylane.tape import JacobianTape
 
+pytestmark = pytest.mark.torch
 
 qubit_device_and_diff_method = [
     ["default.qubit", "finite-diff", "backward"],

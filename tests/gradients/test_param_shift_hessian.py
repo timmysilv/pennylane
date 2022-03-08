@@ -571,6 +571,7 @@ class TestParameterShiftHessian:
 class TestInterfaces:
     """Test the param_shift_hessian method on different interfaces"""
 
+    @pytest.mark.torch
     def test_hessian_transform_with_torch(self):
         """Test that the Hessian transform can be used with Torch (1d -> 1d)"""
         torch = pytest.importorskip("torch")
@@ -593,6 +594,7 @@ class TestInterfaces:
 
         assert np.allclose(expected, hess.detach())
 
+    @pytet.mark.torch
     def test_hessian_transform_is_differentiable_torch(self):
         """Test that the 3rd derivate can be calculated via auto-differentiation in Torch
         (1d -> 1d)"""
@@ -617,6 +619,7 @@ class TestInterfaces:
 
         assert np.allclose(expected, torch_deriv)
 
+    @pytest.mark.jax
     @pytest.mark.slow
     def test_hessian_transform_with_jax(self):
         """Test that the Hessian transform can be used with JAX (1d -> 1d)"""
@@ -640,6 +643,7 @@ class TestInterfaces:
 
         assert np.allclose(expected, hess)
 
+    @pytest.mark.jax
     @pytest.mark.slow
     def test_hessian_transform_is_differentiable_jax(self):
         """Test that the 3rd derivate can be calculated via auto-differentiation in JAX
@@ -664,6 +668,7 @@ class TestInterfaces:
 
         assert np.allclose(expected, jax_deriv)
 
+    @pytest.mark.tf
     @pytest.mark.slow
     def test_hessian_transform_with_tensorflow(self):
         """Test that the Hessian transform can be used with TensorFlow (1d -> 1d)"""
@@ -688,6 +693,7 @@ class TestInterfaces:
 
         assert np.allclose(expected, hess)
 
+    @pytest.mark.tf
     @pytest.mark.slow
     def test_hessian_transform_is_differentiable_tensorflow(self):
         """Test that the 3rd derivate can be calculated via auto-differentiation in Tensorflow

@@ -19,6 +19,7 @@ import pennylane as qml
 from pennylane.qnode_old import qnode, QNode
 from pennylane.tape import JacobianTape, QubitParamShiftTape
 
+pytestmark = pytest.mark.autograd
 
 @pytest.mark.parametrize(
     "dev_name,diff_method",

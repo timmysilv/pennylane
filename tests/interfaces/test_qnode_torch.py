@@ -23,6 +23,7 @@ from pennylane.qnode_old import qnode, QNode
 from pennylane.tape import JacobianTape
 from torch.autograd.functional import hessian, jacobian
 
+pytestmark = pytest.mark.torch
 
 @pytest.mark.parametrize(
     "dev_name,diff_method",
