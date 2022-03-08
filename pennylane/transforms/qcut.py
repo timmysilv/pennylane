@@ -49,6 +49,7 @@ class MeasureNode(Operation):
 
     def __init__(self, *params, wires=None, do_queue=True, id=None):
         id = str(uuid.uuid4())
+        # self.order = None
 
         super().__init__(*params, wires=wires, do_queue=do_queue, id=id)
 
@@ -61,6 +62,7 @@ class PrepareNode(Operation):
 
     def __init__(self, *params, wires=None, do_queue=True, id=None):
         id = str(uuid.uuid4())
+        # self.order = None
 
         super().__init__(*params, wires=wires, do_queue=do_queue, id=id)
 
@@ -1382,6 +1384,14 @@ def sample_graph_to_tape(graph):
     ordered_ops = sorted(
         [(order, op) for op, order in graph.nodes(data="order")], key=lambda x: x[0]
     )
+
+    # Give the measure and prepare nodes an order attr in order to sample the
+    # state preparation in accordance to the result of sampling a pauli measurement
+    # in a later step
+    for order, op in ordered_ops:
+        if isinstance(op, (MeasureNode, PrepareNode)):
+            op.order = order
+
     wire_map = {w: w for w in wires}
     reverse_wire_map = {v: k for k, v in wire_map.items()}
 
@@ -1462,16 +1472,10 @@ def _prep_Yminus_state(wire):
     qml.PhaseShift(-np.pi / 2, wire)
 
 
-PREPARE_STATES = [
-    _prep_Iplus_state,
-    _prep_Iminus_state,
-    _prep_Xplus_state,
-    _prep_Xminus_state,
-    _prep_Yplus_state,
-    _prep_Yminus_state,
-    _prep_Zplus_state,
-    _prep_Zminus_state,
-]
+PREP_I = [_prep_Iplus_state, _prep_Iminus_state]
+PREP_X = [_prep_Xplus_state, _prep_Xminus_state]
+PREP_Y = [_prep_Yplus_state, _prep_Yminus_state]
+PREP_Z = [_prep_Zplus_state, _prep_Zminus_state]
 
 
 def _identity(wire):
@@ -1490,27 +1494,38 @@ def _pauliZ(wire):
     qml.PauliZ(wires=wire)
 
 
-PAULIS = [_identity, _pauliX, _pauliY, _pauliZ]
+PAULIS = {"I": _identity, "X": _pauliX, "Y": _pauliY, "Z": _pauliZ}
 
 
 def random_configurations(fragment_tapes, n_samples=1):
     """
     Generates random configurations for a given sequence if fragment tapes.
     """
+    pauli_tag = ["I", "X", "Y", "Z"]
     all_configs = []
     for _ in range(n_samples):
         tapes = []
+        prepare_ops = {}
         for fragment in fragment_tapes:
             with QuantumTape() as tape_config:
-
                 for op in fragment.operations:
                     w = op.wires[0]
-                    if isinstance(op, PrepareNode):
-                        random.choice(PREPARE_STATES)(w)
+                    if isinstance(op, MeasureNode):
+                        letter = random.choice(pauli_tag)
+                        PAULIS[letter](w)
+                        prepare_ops[op.order] = letter
+                    elif isinstance(op, PrepareNode):
+                        prep_letter = prepare_ops[op.order]
+                        if prep_letter == "I":
+                            random.choice(PREP_I)(w)
+                        elif prep_letter == "X":
+                            random.choice(PREP_X)(w)
+                        elif prep_letter == "Y":
+                            random.choice(PREP_Y)(w)
+                        elif prep_letter == "Z":
+                            random.choice(PREP_Z)(w)
                     elif not isinstance(op, MeasureNode):
                         apply(op)
-                    elif isinstance(op, MeasureNode):
-                        random.choice(PAULIS)(w)
 
                 for meas in fragment.measurements:
                     apply(meas)
