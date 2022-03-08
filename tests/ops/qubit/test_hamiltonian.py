@@ -871,6 +871,7 @@ class TestHamiltonianArithmeticTF:
         assert H.compare(H1 @ H2)
 
 
+@pytest.mark.torch
 class TestHamiltonianArithmeticTorch:
     """Tests creation of Hamiltonians using arithmetic
     operations with torch tensor coefficients."""
@@ -951,6 +952,7 @@ class TestHamiltonianArithmeticTorch:
         assert H.compare(H1 @ H2)
 
 
+@pytest.mark.autograd
 class TestHamiltonianArithmeticAutograd:
     """Tests creation of Hamiltonians using arithmetic
     operations with autograd tensor coefficients."""
@@ -1023,6 +1025,7 @@ class TestHamiltonianArithmeticAutograd:
         assert H.compare(H1 @ H2)
 
 
+@pytest.mark.jax
 class TestHamiltonianArithmeticJax:
     """Tests creation of Hamiltonians using arithmetic
     operations with jax tensor coefficients."""
@@ -1329,6 +1332,7 @@ class TestHamiltonianDifferentiation:
 
         assert np.allclose(grad, grad_expected)
 
+    @pytest.mark.autograd
     @pytest.mark.parametrize("simplify", [True, False])
     @pytest.mark.parametrize("group", [None, "qwc"])
     def test_trainable_coeffs_autograd(self, simplify, group):
@@ -1368,6 +1372,7 @@ class TestHamiltonianDifferentiation:
         assert np.allclose(grad[0], grad_expected[0])
         assert np.allclose(grad[1], grad_expected[1])
 
+    @pytest.mark.autograd
     def test_nontrainable_coeffs_autograd(self):
         """Test the autograd interface if the coefficients are explicitly set non-trainable"""
         coeffs = pnp.array([-0.05, 0.17], requires_grad=False)
@@ -1396,6 +1401,7 @@ class TestHamiltonianDifferentiation:
 
         assert np.allclose(grad, grad_expected)
 
+    @pytest.mark.jax
     @pytest.mark.parametrize("simplify", [True, False])
     @pytest.mark.parametrize("group", [None, "qwc"])
     def test_trainable_coeffs_jax(self, simplify, group):
@@ -1438,6 +1444,7 @@ class TestHamiltonianDifferentiation:
         assert np.allclose(grad[0], grad_expected[0])
         assert np.allclose(grad[1], grad_expected[1])
 
+    @pytest.mark.jax
     def test_nontrainable_coeffs_jax(self):
         """Test the jax interface if the coefficients are explicitly set non-trainable"""
 
@@ -1469,6 +1476,7 @@ class TestHamiltonianDifferentiation:
 
         assert np.allclose(grad, grad_expected)
 
+    @pytest.mark.torch
     @pytest.mark.parametrize("simplify", [True, False])
     @pytest.mark.parametrize("group", [None, "qwc"])
     def test_trainable_coeffs_torch(self, simplify, group):
@@ -1517,6 +1525,7 @@ class TestHamiltonianDifferentiation:
         assert np.allclose(grad[0], grad_expected[0])
         assert np.allclose(grad[1], grad_expected[1])
 
+    @pytest.mark.torch
     def test_nontrainable_coeffs_torch(self):
         """Test the torch interface if the coefficients are explicitly set non-trainable"""
 
@@ -1558,6 +1567,7 @@ class TestHamiltonianDifferentiation:
         assert coeffs.grad is None
         assert np.allclose(param.grad, param2.grad)
 
+    @pytest.mark.tf
     @pytest.mark.parametrize("simplify", [True, False])
     @pytest.mark.parametrize("group", [None, "qwc"])
     def test_trainable_coeffs_tf(self, simplify, group):
@@ -1605,6 +1615,7 @@ class TestHamiltonianDifferentiation:
         assert np.allclose(grad[0], grad_expected[0])
         assert np.allclose(grad[1], grad_expected[1])
 
+    @pytest.mark.tf
     def test_nontrainable_coeffs_tf(self):
         """Test the tf interface if the coefficients are explicitly set non-trainable"""
 

@@ -25,6 +25,9 @@ from pennylane.qnn.torch import TorchLayer
 torch = pytest.importorskip("torch")
 
 
+pytestmark = pytest.mark.torch
+
+
 def indices_up_to(n_max):
     """Returns an iterator over the number of qubits and output dimension, up to value n_max.
     The output dimension never exceeds the number of qubits."""

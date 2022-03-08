@@ -23,6 +23,7 @@ KerasLayer = qml.qnn.keras.KerasLayer
 
 tf = pytest.importorskip("tensorflow", minversion="2")
 
+pytestmark = pytest.mark.tf
 
 @pytest.fixture
 def model(get_circuit, n_qubits, output_dim):

@@ -1465,6 +1465,7 @@ class TestPauliRot:
 
         assert gen.compare(-0.5 * expected_gen)
 
+    @pytest.mark.torch
     @pytest.mark.gpu
     @pytest.mark.parametrize("theta", np.linspace(0, 2 * np.pi, 7))
     @pytest.mark.parametrize("torch_device", [None, "cuda"])
@@ -1726,6 +1727,7 @@ class TestLabel:
         assert op.label(decimals=0) == label4
         op.inv()
 
+    @pytest.mark.tf
     def test_label_tf(self):
         """Test label methods work with tensorflow variables"""
         tf = pytest.importorskip("tensorflow")
@@ -1739,6 +1741,7 @@ class TestLabel:
         op3 = qml.Rot(tf.Variable(0.1), tf.Variable(0.2), tf.Variable(0.3), wires=0)
         assert op3.label(decimals=2) == "Rot\n(0.10,\n0.20,\n0.30)"
 
+    @pytest.mark.torch
     def test_label_torch(self):
         """Test label methods work with torch tensors"""
         torch = pytest.importorskip("torch")
@@ -1752,6 +1755,7 @@ class TestLabel:
         op3 = qml.Rot(torch.tensor(0.1), torch.tensor(0.2), torch.tensor(0.3), wires=0)
         assert op3.label(decimals=2) == "Rot\n(0.10,\n0.20,\n0.30)"
 
+    @pytest.mark.jax
     def test_label_jax(self):
         """Test the label method works with jax"""
         jax = pytest.importorskip("jax")

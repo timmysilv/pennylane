@@ -34,6 +34,7 @@ from gate_data import (
 class TestQubitUnitary:
     """Tests for the QubitUnitary class."""
 
+    @pytest.mark.autograd
     @pytest.mark.parametrize("U,num_wires", [(H, 1), (np.kron(H, H), 2)])
     def test_qubit_unitary_autograd(self, U, num_wires):
         """Test that the unitary operator produces the correct output and
@@ -61,6 +62,7 @@ class TestQubitUnitary:
         with pytest.raises(ValueError, match="must be of shape"):
             qml.QubitUnitary(U, wires=range(num_wires + 1)).get_matrix()
 
+    @pytest.mark.torch
     @pytest.mark.parametrize("U,num_wires", [(H, 1), (np.kron(H, H), 2)])
     def test_qubit_unitary_torch(self, U, num_wires):
         """Test that the unitary operator produces the correct output and
@@ -90,6 +92,7 @@ class TestQubitUnitary:
         with pytest.raises(ValueError, match="must be of shape"):
             qml.QubitUnitary(U, wires=range(num_wires + 1)).get_matrix()
 
+    @pytest.mark.tf
     @pytest.mark.parametrize("U,num_wires", [(H, 1), (np.kron(H, H), 2)])
     def test_qubit_unitary_tf(self, U, num_wires):
         """Test that the unitary operator produces the correct output and
@@ -118,6 +121,7 @@ class TestQubitUnitary:
         with pytest.raises(ValueError, match="must be of shape"):
             qml.QubitUnitary(U, wires=range(num_wires + 1)).get_matrix()
 
+    @pytest.mark.jax
     @pytest.mark.parametrize("U,num_wires", [(H, 1), (np.kron(H, H), 2)])
     def test_qubit_unitary_jax(self, U, num_wires):
         """Test that the unitary operator produces the correct output and
@@ -147,6 +151,7 @@ class TestQubitUnitary:
         with pytest.raises(ValueError, match="must be of shape"):
             qml.QubitUnitary(U, wires=range(num_wires + 1)).get_matrix()
 
+    @pytest.mark.jax
     @pytest.mark.parametrize("U, num_wires", [(H, 1), (np.kron(H, H), 2)])
     def test_qubit_unitary_jax(self, U, num_wires):
         """Tests that QubitUnitary works with jitting."""
@@ -524,6 +529,7 @@ class TestInterfaceMatricesLabel:
         assert op.label(cache=cache) == "U(M1)"
         assert len(cache["matrices"]) == 3
 
+    @pytest.mark.torch
     def test_labelling_torch_tensor(self):
         """Test matrix cache labelling with torch interface."""
 
@@ -532,6 +538,7 @@ class TestInterfaceMatricesLabel:
         mat = torch.tensor([[1, 0], [0, -1]])
         self.check_interface(mat)
 
+    @pytest.mark.tf
     def test_labelling_tf_variable(self):
         """Test matrix cache labelling with tf interface."""
 
@@ -540,6 +547,7 @@ class TestInterfaceMatricesLabel:
 
         self.check_interface(mat)
 
+    @pytest.mark.jax
     def test_labelling_jax_variable(self):
         """Test matrix cache labelling with jax interface."""
 

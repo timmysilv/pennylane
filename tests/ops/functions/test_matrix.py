@@ -383,6 +383,8 @@ class TestValidation:
 
 
 class TestInterfaces:
+
+    @pytest.mark.tf
     def test_tf(self):
         """Test with tensorflow interface"""
         tf = pytest.importorskip("tensorflow")
@@ -409,6 +411,7 @@ class TestInterfaces:
 
         assert np.allclose(matrix, expected_matrix)
 
+    @pytest.mark.torch
     def test_torch(self):
         """Test with torch interface"""
 
@@ -438,6 +441,7 @@ class TestInterfaces:
 
         assert np.allclose(matrix, expected_matrix)
 
+    @pytest.mark.autograd
     def test_autograd(self):
         """Test with autograd interface"""
 
@@ -461,6 +465,7 @@ class TestInterfaces:
 
         assert np.allclose(matrix, expected_matrix)
 
+    @pytest.mark.jax
     def test_get_unitary_matrix_interface_jax(self):
         """Test with JAX interface"""
 
@@ -494,6 +499,8 @@ class TestInterfaces:
 
 
 class TestDifferentiation:
+
+    @pytest.mark.jax
     @pytest.mark.parametrize("v", np.linspace(0.2, 1.6, 8))
     def test_jax(self, v):
 
@@ -518,6 +525,7 @@ class TestDifferentiation:
         assert np.allclose(l, 2 * np.cos(v / 2))
         assert np.allclose(dl, -np.sin(v / 2))
 
+    @pytest.mark.torch
     @pytest.mark.parametrize("v", np.linspace(0.2, 1.6, 8))
     def test_torch(self, v):
 
@@ -542,6 +550,7 @@ class TestDifferentiation:
         assert np.allclose(l.detach(), 2 * np.cos(v / 2))
         assert np.allclose(dl.detach(), -np.sin(v / 2))
 
+    @pytest.mark.tf
     @pytest.mark.parametrize("v", np.linspace(0.2, 1.6, 8))
     def test_tensorflow(self, v):
 
@@ -566,6 +575,7 @@ class TestDifferentiation:
         assert np.allclose(l, 2 * np.cos(v / 2))
         assert np.allclose(dl, -np.sin(v / 2))
 
+    @pytest.mark.autograd
     @pytest.mark.parametrize("v", np.linspace(0.2, 1.6, 8))
     def test_get_unitary_matrix_autograd_differentiable(self, v):
         def circuit(theta):

@@ -21,8 +21,10 @@ import pytest
 from pennylane.qnn.cost import SquaredErrorLoss
 
 
-ALLOWED_INTERFACES = ["tf", "jax", "autograd", "torch"]
-
+INTERFACES_FOR_PARAMETRIZATION = [pytest.param("autograd", marks=pytest.mark.autograd),
+        pytest.param("jax", marks=pytest.mark.jax),
+        pytest.param("torch", marks=pytest.mark.torch),
+        pytest.param("tensorflow", marks=pytest.mark.tf)]
 
 def rx_ansatz(phis, **kwargs):
     for w, phi in enumerate(phis):
@@ -41,7 +43,7 @@ def skip_if_no_torch_support():
     pytest.importorskip("torch", minversion="1.4")
 
 
-@pytest.mark.parametrize("interface", ALLOWED_INTERFACES)
+@pytest.mark.parametrize("interface", INTERFACES_FOR_PARAMETRIZATION)
 @pytest.mark.usefixtures(
     "skip_if_no_torch_support", "skip_if_no_tf_support", "skip_if_no_jax_support"
 )

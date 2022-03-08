@@ -336,6 +336,7 @@ class TestParameterShiftRule:
         assert np.allclose(grad_A, grad_F1, atol=tol, rtol=0)
         assert np.allclose(grad_A, grad_F2, atol=tol, rtol=0)
 
+    @pytest.mark.torch
     def test_processing_function_torch(self, mocker, tol):
         """Tests the processing function that is created when using the
         parameter_shift method returns a numpy array.

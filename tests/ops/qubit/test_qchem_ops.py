@@ -731,6 +731,7 @@ class TestOrbitalRotation:
 
         assert np.allclose(res, expected)
 
+    @pytest.mark.autograd
     def test_autograd(self):
         """Tests that operations are computed correctly using the
         autograd interface"""
@@ -769,6 +770,7 @@ class TestOrbitalRotation:
 
         assert np.allclose(state, circuit(np.pi / 2))
 
+    @pytest.mark.tf
     def test_tf(self):
         """Tests that operations are computed correctly using the
         tensorflow interface"""
@@ -807,6 +809,7 @@ class TestOrbitalRotation:
 
         assert np.allclose(state, circuit(np.pi / 2))
 
+    @pytest.mark.jax
     def test_jax(self):
         """Tests that operations are computed correctly using the
         jax interface"""
@@ -845,6 +848,7 @@ class TestOrbitalRotation:
 
         assert np.allclose(state, circuit(np.pi / 2))
 
+    @pytest.mark.torch
     def test_torch(self):
         """Tests that operations are computed correctly using the
         torch interface"""
@@ -883,6 +887,7 @@ class TestOrbitalRotation:
 
         assert np.allclose(state, circuit(np.pi / 2))
 
+    @pytest.mark.autograd
     @pytest.mark.parametrize("diff_method", ["parameter-shift", "backprop"])
     @pytest.mark.parametrize(
         "phi",
@@ -909,6 +914,7 @@ class TestOrbitalRotation:
 
         assert np.allclose(qml.grad(total)(phi), self.expected_grad_fn(phi))
 
+    @pytest.mark.tf
     @pytest.mark.parametrize("diff_method", ["parameter-shift", "backprop"])
     @pytest.mark.parametrize(
         ("phi"),
@@ -933,6 +939,7 @@ class TestOrbitalRotation:
 
         assert np.allclose(grad, self.expected_grad_fn(phi))
 
+    @pytest.mark.jax
     @pytest.mark.parametrize("diff_method", ["parameter-shift", "backprop"])
     @pytest.mark.parametrize(
         ("phi"),
@@ -957,6 +964,7 @@ class TestOrbitalRotation:
 
         assert np.allclose(jax.grad(total)(phi_j), self.expected_grad_fn(phi))
 
+    @pytest.mark.torch
     @pytest.mark.parametrize("diff_method", ["parameter-shift", "backprop"])
     @pytest.mark.parametrize(
         ("phi"),

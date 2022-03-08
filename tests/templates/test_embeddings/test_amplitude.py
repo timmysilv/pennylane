@@ -258,6 +258,7 @@ class TestInterfaces:
         res2 = circuit2(tuple(features))
         assert qml.math.allclose(res, res2, atol=tol, rtol=0)
 
+    @pytest.mark.autograd
     def test_autograd(self, tol):
         """Tests autograd tensors."""
 
@@ -273,6 +274,7 @@ class TestInterfaces:
 
         assert qml.math.allclose(res, res2, atol=tol, rtol=0)
 
+    @pytest.mark.jax
     def test_jax(self, tol):
         """Tests jax tensors."""
 
@@ -291,6 +293,7 @@ class TestInterfaces:
 
         assert qml.math.allclose(res, res2, atol=tol, rtol=0)
 
+    @pytest.mark.jax
     def test_jax_jit(self, tol):
         """Tests jax tensors when using JIT."""
 
@@ -309,6 +312,7 @@ class TestInterfaces:
 
         assert qml.math.allclose(res, res2, atol=tol, rtol=0)
 
+    @pytest.mark.tf
     def test_tf(self, tol):
         """Tests tf tensors."""
 
@@ -326,6 +330,7 @@ class TestInterfaces:
 
         assert qml.math.allclose(res, res2, atol=tol, rtol=0)
 
+    @pytest.mark.tf
     def test_tf_jit(self, tol):
         """Tests tf tensors when using JIT."""
 
@@ -343,6 +348,7 @@ class TestInterfaces:
 
         assert qml.math.allclose(res, res2, atol=tol, rtol=0)
 
+    @pytest.mark.torch
     def test_torch(self, tol):
         """Tests torch tensors."""
 

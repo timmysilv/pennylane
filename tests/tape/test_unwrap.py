@@ -19,6 +19,7 @@ import pytest
 import pennylane as qml
 
 
+@pytest.mark.tf
 def test_unwrap_tensorflow():
     """Test that unwrapping a tape with TensorFlow parameters
     works as expected"""
@@ -48,6 +49,7 @@ def test_unwrap_tensorflow():
     assert tape.get_parameters(trainable_only=False) == p
 
 
+@pytest.mark.torch
 def test_unwrap_torch():
     """Test that unwrapping a tape with Torch parameters
     works as expected"""
@@ -81,6 +83,7 @@ def test_unwrap_torch():
     assert tape.get_parameters(trainable_only=False) == p
 
 
+@pytest.mark.autograd
 def test_unwrap_autograd():
     """Test that unwrapping a tape with Autograd parameters
     works as expected"""
@@ -110,6 +113,7 @@ def test_unwrap_autograd():
     assert tape.get_parameters(trainable_only=False) == p
 
 
+@pytest.mark.autograd
 def test_unwrap_autograd_backward():
     """Test that unwrapping a tape with Autograd parameters
     works as expected during a backwards pass"""
@@ -149,6 +153,7 @@ def test_unwrap_autograd_backward():
     qml.jacobian(qml.grad(cost))(*p)
 
 
+@pytest.mark.jax
 def test_unwrap_jax():
     """Test that unwrapping a tape with JAX parameters
     works as expected"""
@@ -186,6 +191,7 @@ def test_unwrap_jax():
     assert tape.get_parameters(trainable_only=False) == p
 
 
+@pytest.mark.jax
 def test_unwrap_jax_backward():
     """Test that unwrapping a tape with JAX parameters
     works as expected during a backwards pass"""
@@ -227,6 +233,7 @@ def test_unwrap_jax_backward():
     jax.jacobian(jax.grad(cost, argnums=0), argnums=0)(*p)
 
 
+@pytest.mark.torch
 def test_multiple_unwrap():
     """Test that unwrapping multiple tapes at once works correctly"""
     torch = pytest.importorskip("torch")
