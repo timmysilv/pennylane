@@ -310,6 +310,7 @@ class TestTemplates:
 class TestDifferentiation:
     """Differentiation tests"""
 
+    @pytest.mark.jax
     @pytest.mark.parametrize("v", np.linspace(0.2, 1.6, 8))
     def test_jax(self, v):
         """Test that differentiation works correctly when using JAX"""
@@ -335,6 +336,7 @@ class TestDifferentiation:
         assert np.allclose(l, 2 * np.cos(v / 2))
         assert np.allclose(dl, -np.sin(v / 2))
 
+    @pytest.mark.torch
     @pytest.mark.parametrize("v", np.linspace(0.2, 1.6, 8))
     def test_torch(self, v):
         """Test that differentiation works correctly when using Torch"""
@@ -362,6 +364,7 @@ class TestDifferentiation:
         assert np.allclose(l.detach(), 2 * np.cos(v / 2))
         assert np.allclose(dl.detach(), -np.sin(v / 2))
 
+    @pytest.mark.tf
     @pytest.mark.parametrize("v", np.linspace(0.2, 1.6, 8))
     def test_tensorflow(self, v):
         """Test that differentiation works correctly when using TF"""
@@ -387,6 +390,7 @@ class TestDifferentiation:
         assert np.allclose(l, 2 * np.cos(v / 2))
         assert np.allclose(dl, -np.sin(v / 2))
 
+    @pytest.mark.autograd
     @pytest.mark.xfail(reason="np.linalg.eigvals not differentiable using Autograd")
     @pytest.mark.parametrize("v", np.linspace(0.2, 1.6, 8))
     def test_autograd(self, v):

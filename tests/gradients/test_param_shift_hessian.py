@@ -205,6 +205,7 @@ class TestParameterShiftHessian:
 
         assert np.allclose(expected, hessian)
 
+    @pytest.mark.jax
     @pytest.mark.slow
     def test_multiple_qnode_arguments_scalar(self):
         """Test that the correct Hessian is calculated with multiple QNode arguments (0D->1D)"""
@@ -236,6 +237,7 @@ class TestParameterShiftHessian:
 
         assert np.allclose(expected, hessian)
 
+    @pytest.mark.jax
     @pytest.mark.slow
     def test_multiple_qnode_arguments_vector(self):
         """Test that the correct Hessian is calculated with multiple QNode arguments (1D->1D)"""
@@ -267,6 +269,7 @@ class TestParameterShiftHessian:
 
         assert np.allclose(expected, hessian)
 
+    @pytest.mark.jax
     @pytest.mark.slow
     def test_multiple_qnode_arguments_matrix(self):
         """Test that the correct Hessian is calculated with multiple QNode arguments (2D->1D)"""
@@ -594,7 +597,7 @@ class TestInterfaces:
 
         assert np.allclose(expected, hess.detach())
 
-    @pytet.mark.torch
+    @pytest.mark.torch
     def test_hessian_transform_is_differentiable_torch(self):
         """Test that the 3rd derivate can be calculated via auto-differentiation in Torch
         (1d -> 1d)"""
