@@ -2557,3 +2557,41 @@ class TestRandomConfgurations:
         # assert random_state_preps_names.count(random_state_preps_names[0]) != len(
         #     random_state_preps_names
         # )
+
+
+class TestProcessSamples:
+    """
+    Tests that the fragment tape output samples are processed correctly
+    """
+
+    def test_process_samples(self):
+        """
+        Test that the results of the full cutting pipeline for a circuit
+        containing sample measurements are processed correctly.
+        """
+
+        with qml.tape.QuantumTape() as tape:
+            qml.Hadamard(wires=0)
+            qml.CNOT(wires=[0, 1])
+            qml.PauliX(wires=1)
+            qml.WireCut(wires=1)
+            qml.CNOT(wires=[1, 2])
+            qml.sample(wires=[0, 1, 2])
+
+        g = qml.transforms.tape_to_graph(tape)
+        qml.transforms.replace_wire_cut_nodes(g)
+        qcut.expand_sample_node(g)
+        fragments, communication_graph = qml.transforms.fragment_graph(g)
+        fragment_tapes = [qcut.sample_graph_to_tape(f) for f in fragments]
+        n_samples = 4
+        configurations = qcut.random_configurations(fragment_tapes, n_samples=n_samples)
+
+        n_shots = 6
+        n_wires = 3
+        dev = qml.device("default.qubit", wires=n_wires, shots=n_shots)
+        results = qcut.process_samples(fragment_tapes, configurations, dev)
+
+        assert len(results) == n_samples
+        for config_res in results:
+            assert config_res.shape == (n_shots, n_wires)
+            assert set(config_res.flatten().tolist()) == {0.0, 1.0}
