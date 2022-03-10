@@ -191,7 +191,7 @@ def expand_tape(tape, depth=1, stop_at=None, expand_measurements=False):
                 getattr(new_tape, queue).append(obj)
                 continue
 
-            if isinstance(obj, (qml.operation.Operation, qml.measurements.MeasurementProcess)):
+            if isinstance(obj, (qml.operation.Operator, qml.measurements.MeasurementProcess)):
                 # Object is an operation; query it for its expansion
                 try:
                     obj = obj.expand()
@@ -413,7 +413,7 @@ class QuantumTape(AnnotatedQueue):
             if isinstance(obj, QuantumTape):
                 self._ops.append(obj)
 
-            elif isinstance(obj, qml.operation.Operation) and not info.get("owner", False):
+            elif isinstance(obj, qml.operation.Operator) and not info.get("owner", False):
                 # operation objects with no owners
 
                 if self._measurements:

@@ -16,6 +16,7 @@
 from pennylane import apply
 from pennylane.wires import Wires
 from pennylane.transforms import qfunc_transform
+from pennylane.ops.math import Controlled
 
 from .optimization_utils import find_next_gate
 
@@ -61,7 +62,7 @@ def _commute_controlled_right(op_list):
 
             # If the next gate does not have control_wires defined, it is not
             # controlled so we can't push through.
-            if len(next_gate.control_wires) == 0:
+            if not isinstance(next_gate, Controlled):
                 break
             shared_controls = Wires.shared_wires(
                 [Wires(current_gate.wires), next_gate.control_wires]

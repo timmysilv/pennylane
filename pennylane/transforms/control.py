@@ -17,127 +17,8 @@ Contains the control transform.
 from functools import wraps
 
 import pennylane as qml
-from pennylane.tape import QuantumTape, get_active_tape
-from pennylane.operation import DecompositionUndefinedError, Operation, AnyWires
-from pennylane.wires import Wires
-from pennylane.transforms.adjoint import adjoint
 
-
-def requeue_ops_in_tape(tape):
-    """Requeue all of the operations in a tape directly to the current tape context"""
-    for op in tape.operations:
-        op.queue()
-
-
-def expand_with_control(tape, control_wire):
-    """Expand a tape to include a control wire on all queued operations.
-
-    Args:
-        tape (.QuantumTape): quantum tape to be controlled
-        control_wire (int): a single wire to use as the control wire
-
-    Returns:
-        .QuantumTape: A new QuantumTape with the controlled operations.
-    """
-    with QuantumTape(do_queue=False) as new_tape:
-        for op in tape.operations:
-            if hasattr(op, "_controlled"):
-                # Execute the controlled version of the operation
-                # and add that the to the tape context.
-                # pylint: disable=protected-access
-                op._controlled(control_wire)
-            else:
-                # Attempt to decompose the operation and apply
-                # controls to each gate in the decomposition.
-                with new_tape.stop_recording():
-                    try:
-                        tmp_tape = op.expand()
-                    except DecompositionUndefinedError:
-                        with QuantumTape() as tmp_tape:
-                            qml.ControlledQubitUnitary(
-                                op.get_matrix(), control_wires=control_wire, wires=op.wires
-                            )
-
-                tmp_tape = expand_with_control(tmp_tape, control_wire)
-                requeue_ops_in_tape(tmp_tape)
-
-    return new_tape
-
-
-class ControlledOperation(Operation):
-    """A Controlled Operation.
-
-    Unless you are a Pennylane plugin developer, **you should NOT directly use this class**,
-    instead, use the :func:`qml.ctrl <.ctrl>` function.
-
-    The ``ControlledOperation`` class is a container class that defines a set of operations that
-    should by applied relative to a single control wire or a list of control wires.
-
-    Certain simulators and quantum computers can take advantage of the controlled gate sparsity,
-    while other devices must rely on the op-by-op decomposition defined by the ``op.expand``
-    method.
-
-    Args:
-        tape: A QuantumTape. This tape defines the unitary that should be applied relative
-            to the control wires.
-        control_wires: A wire or set of wires.
-    """
-
-    grad_method = None
-    num_wires = AnyWires
-
-    def __init__(self, tape, control_wires, do_queue=True):
-        self.subtape = tape
-        """QuantumTape: The tape that defines the underlying operation."""
-
-        if len(self.subtape.operations) == 1:
-            self.control_base = self.subtape.operations[0].name
-        else:
-            self.control_base = "MultipleTargets"
-
-        self._control_wires = Wires(control_wires)
-        """Wires: The control wires."""
-
-        wires = self.control_wires + tape.wires
-        super().__init__(*tape.get_parameters(), wires=wires, do_queue=do_queue)
-
-    @property
-    def num_params(self):
-        return self.subtape.num_params
-
-    @property
-    def control_wires(self):
-        return self._control_wires
-
-    def expand(self):
-        tape = self.subtape
-        tape.set_parameters(self.data)
-
-        for wire in self.control_wires:
-            tape = expand_with_control(tape, wire)
-
-        return tape
-
-    def adjoint(self):
-        """Returns a new ControlledOperation that is equal to the adjoint of `self`"""
-
-        active_tape = get_active_tape()
-
-        if active_tape is not None:
-            with get_active_tape().stop_recording(), QuantumTape() as new_tape:
-                # Execute all ops adjointed.
-                adjoint(requeue_ops_in_tape)(self.subtape)
-
-        else:
-            # Not within a queuing context
-            with QuantumTape() as new_tape:
-                # Execute all ops adjointed.
-                adjoint(requeue_ops_in_tape)(self.subtape)
-
-        return ControlledOperation(new_tape, self.control_wires)
-
-    def _controlled(self, wires):
-        ControlledOperation(tape=self.subtape, control_wires=Wires(wires) + self.control_wires)
+from pennylane.ops.math import Controlled
 
 
 def ctrl(fn, control):
@@ -218,8 +99,9 @@ def ctrl(fn, control):
 
     @wraps(fn)
     def wrapper(*args, **kwargs):
-        with QuantumTape(do_queue=False) as tape:
+        with qml.tape.QuantumTape(do_queue=False) as tape:
             fn(*args, **kwargs)
-        return ControlledOperation(tape, control)
+        
+        return [Controlled(op, control) for op in tape.operations]
 
     return wrapper

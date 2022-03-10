@@ -281,14 +281,16 @@ def tape_mpl(tape, wire_order=None, show_all_wires=False, decimals=None, **kwarg
                 specialfunc(drawer, layer, mapped_wires, op)
 
             else:
-                control_wires = [wire_map[w] for w in op.control_wires]
-                target_wires = [wire_map[w] for w in op.wires if w not in op.control_wires]
 
-                if len(control_wires) != 0:
-                    drawer.ctrl(layer, control_wires, wires_target=target_wires)
+                if isinstance(op, ops.math.Controlled):
+                    control_wires = [wire_map[w] for w in op.control_wires]
+                    wires = [wire_map[w] for w in op.target_wires]
+                    drawer.ctrl(layer, control_wires, wires_target=wires)
+                else:
+                    wires = [wire_map[w] for w in op.wires]
                 drawer.box_gate(
                     layer,
-                    target_wires,
+                    wires,
                     op.label(decimals=decimals),
                     box_options={
                         "zorder": 4

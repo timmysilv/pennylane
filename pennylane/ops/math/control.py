@@ -191,3 +191,43 @@ class Controlled(Operator):
         proj = qml.Projector(proj_ones, wires=self.control_wires)
         return (1.0*proj @ sub_gen)
 
+# Non-parametric operations
+
+def CNOT(wires, do_queue=True, id=None):
+    return Controlled(qml.PauliX(wires[-1]), wires=wires[0], do_queue=do_queue, id=id)
+
+def Toffoli(wires, do_queue=True, id=None):
+    return Controlled(qml.PauliX(wires[-1]), wires[0:-1], do_queue=do_queue, id=id)
+
+def MultiControlledX(wires, control_values=None, work_wires=None, do_queue=True, id=None):
+    return Controlled(qml.PauliX(wires[-1]), wires[0:-1], control_values=control_values, work_wires=work_wires,
+        do_queue=do_queue, id=id)
+
+def CZ(wires, do_queue=True, id=None):
+    return Controlled(qml.PauliZ(wires[-1]), wires=wires[0], do_queue=do_queue, id=id)
+
+def CY(wires, do_queue=True, id=None):
+    return Controlled(qml.PauliY(wires[-1]), wires=wires[0], do_queue=do_queue, id=id)
+
+def CSWAP(wires, do_queue=True, id=None):
+    return Controlled(qml.SWAP(wires[1:]), wires=wires[0], do_queue=do_queue, id=id)
+
+
+# parametrix operations
+
+def CRX(phi, wires, do_queue=True, id=None):
+    return Controlled(qml.RX(phi, wires=wires[-1]), control_wires=wires[0], do_queue=do_queue, id=id))
+
+def CRY(phi, wires, do_queue=True, id=None):
+    return Controlled(qml.RY(phi, wires=wires[-1]), control_wires=wires[0], do_queue=do_queue, id=id))
+
+def CRZ(phi, wires, do_queue=True, id=None):
+    return Controlled(qml.RZ(phi, wires=wires[-1]), control_wires=wires[0], do_queue=do_queue, id=id))
+
+def CRot(phi, theta, omega, wires, do_queue=True, id=None):
+    return Controlled(qml.Rot(phi, theta, omega, wires=wires[-1]), control_wires=wires[0], do_queue=do_queue, id=id))
+
+def ControlledPhaseShift(phi, wires, do_queue=True, id=None):
+    return Controlled(qml.PhaseShift(phi, wires=wires[-1]), control_wires=wires[0], do_queue=do_queue, id=id))
+
+CPhase = ControlledPhaseShift
