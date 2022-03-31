@@ -20,6 +20,8 @@ from functools import wraps
 
 from .tape_mpl import tape_mpl
 from .tape_text import tape_text
+from IPython.display import display
+from pyQuirk import Quirk
 
 
 def draw(
@@ -226,7 +228,12 @@ def draw(
 
 
 def draw_mpl(
-    qnode, wire_order=None, show_all_wires=False, decimals=None, expansion_strategy=None, **kwargs
+    qnode,
+    wire_order=None,
+    show_all_wires=False,
+    decimals=None,
+    expansion_strategy=None,
+    **kwargs,
 ):
     """Draw a qnode with matplotlib
 
@@ -437,5 +444,34 @@ def draw_mpl(
             decimals=decimals,
             **kwargs,
         )
+
+    return wrapper
+
+def draw_quirk(
+    qnode,
+    width=800,
+    height=300,
+    expansion_strategy=None,
+):
+    """Create a function that draws the given qnode using Quirk."""
+
+    @wraps(qnode)
+    def wrapper(*args, **kwargs):
+
+        original_expansion_strategy = getattr(qnode, "expansion_strategy", None)
+
+        try:
+            qnode.expansion_strategy = expansion_strategy or original_expansion_strategy
+            qnode.construct(args, kwargs)
+        finally:
+            qnode.expansion_strategy = original_expansion_strategy
+
+        quirk = Quirk()
+        quirk.height = height
+        quirk.width = width
+
+        qasm_tape = qnode.tape.to_openqasm(skip_parameters=True)
+        display(quirk)
+        quirk.update_from_qasm(qasm_tape)
 
     return wrapper

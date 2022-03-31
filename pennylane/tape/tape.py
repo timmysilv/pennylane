@@ -1177,7 +1177,7 @@ class QuantumTape(AnnotatedQueue):
             show_matrices=show_matrices,
         )
 
-    def to_openqasm(self, wires=None, rotations=True, measure_all=True, precision=None):
+    def to_openqasm(self, wires=None, rotations=True, measure_all=True, skip_parameters=False, precision=None):
         """Serialize the circuit as an OpenQASM 2.0 program.
 
         Measurements are assumed to be performed on all qubits in the computational basis. An
@@ -1246,7 +1246,7 @@ class QuantumTape(AnnotatedQueue):
             wire_labels = ",".join([f"q[{wires.index(w)}]" for w in op.wires.tolist()])
             params = ""
 
-            if op.num_params > 0:
+            if not skip_parameters and op.num_params > 0:
                 # If the operation takes parameters, construct a string
                 # with parameter values.
                 if precision is not None:

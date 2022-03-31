@@ -29,6 +29,7 @@ requirements = [
     "autoray",
     "cachetools",
     "pennylane-lightning>=0.22",
+    "pyQuirk",
 ]
 
 info = {
